@@ -1,0 +1,276 @@
+@import 'tailwindcss';
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+
+@layer base {
+  :root {
+    /* New Clean Light Theme Colors */
+    --qutby-bg-main: #f8fafc;
+    --qutby-sidebar-bg: #ffffff;
+    --qutby-topbar-bg: #ffffff;
+    --qutby-accent-blue: #2563eb;
+    --qutby-active-bg: #eef2ff;
+    --qutby-text-dark: #0f172a;
+    --qutby-text-muted: #64748b;
+  }
+}
+
+@layer components {
+  /* ===== GLOBAL BACKGROUND ===== */
+  .fi-layout {
+    background-color: var(--qutby-bg-main) !important;
+  }
+
+  /* ===== TOPBAR ===== */
+  .fi-topbar {
+    background: var(--qutby-topbar-bg) !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+  }
+
+  .fi-topbar :is(a, button, span, p, svg) {
+    color: var(--qutby-text-muted) !important;
+  }
+
+  .fi-topbar .fi-logo,
+  .fi-topbar .fi-brand-name {
+    color: var(--qutby-text-dark) !important;
+    font-weight: 700 !important;
+  }
+
+  /* ===== SIDEBAR ===== */
+  .fi-sidebar {
+    background: var(--qutby-sidebar-bg) !important;
+    border-right: 1px solid #f1f5f9 !important;
+  }
+
+  .fi-sidebar * {
+    color: var(--qutby-text-muted);
+  }
+
+  /* Sidebar Nav Items */
+  .fi-sidebar-nav-item > a {
+    border-radius: 0.5rem !important;
+    margin: 0.25rem 0.75rem !important;
+    padding: 0.625rem 1rem !important;
+    transition: all 0.2s ease;
+    position: relative;
+    border: none !important;
+  }
+
+  .fi-sidebar-nav-item > a:hover {
+    background: #f1f5f9 !important;
+    color: var(--qutby-text-dark) !important;
+  }
+
+  /* Active Sidebar Item */
+  .fi-sidebar-nav-item.fi-active > a,
+  .fi-sidebar-nav-item > a[aria-current='page'] {
+    background: var(--qutby-active-bg) !important;
+    color: var(--qutby-accent-blue) !important;
+    font-weight: 600 !important;
+  }
+
+  /* The Blue side Indicator */
+  .fi-sidebar-nav-item.fi-active > a::before,
+  .fi-sidebar-nav-item > a[aria-current='page']::before {
+    content: '';
+    position: absolute;
+    left: -0.75rem;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    width: 3px;
+    background: var(--qutby-accent-blue);
+    border-radius: 0 4px 4px 0;
+  }
+
+  .fi-sidebar-nav-item.fi-active svg,
+  .fi-sidebar-nav-item > a[aria-current='page'] svg {
+    color: var(--qutby-accent-blue) !important;
+  }
+
+  /* Group labels */
+  .fi-sidebar-group-label {
+    padding: 0 1.75rem !important;
+    text-transform: uppercase;
+    font-size: 11px !important;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    color: #94a3b8 !important;
+  }
+
+  /* ===== SECTION & CARDS ===== */
+  .fi-section, .fi-fo-panel, .fi-ta-ctn {
+    background: #ffffff !important;
+    border: 1px solid #f1f5f9 !important;
+    border-radius: 0.75rem !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+  }
+
+  /* Headers uppercase */
+  h1, h2, .fi-header-heading {
+    color: var(--qutby-text-dark) !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+  }
+
+  /* Breadcrumbs */
+  .fi-breadcrumbs * {
+    font-size: 13px !important;
+  }
+
+  /* ===== LOGIN PAGE ===== */
+  .fi-simple-layout {
+    background: #f8fafc !important;
+    min-height: 100vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 2rem !important;
+    gap: 0 !important;
+  }
+
+  /* Remove default positioning from main wrapper */
+  .fi-simple-main {
+    width: 100% !important;
+    max-width: 480px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: unset !important;
+  }
+
+  /* Custom out-of-card header */
+  .custom-login-header {
+    margin-bottom: 1rem !important;
+    margin-top: 0 !important;
+    text-align: center !important;
+  }
+
+  .custom-login-header .custom-logo-circle {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 3.5rem !important;
+    height: 3.5rem !important;
+    background: #2563eb !important;
+    color: #ffffff !important;
+    font-size: 1.5rem !important;
+    font-weight: 800 !important;
+    border-radius: 16px !important; /* ROUNDED */
+    margin-bottom: 1rem !important;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
+  }
+
+  .custom-login-header .company-name {
+    font-size: 1.75rem !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+  }
+
+  .custom-login-header .company-tagline {
+    font-size: 0.9rem !important;
+    color: #64748b !important;
+  }
+
+  /* Outer wrapper - transparent, just a column flex container */
+  .fi-simple-layout .fi-simple-main-ctn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 480px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    margin-top: 0 !important;
+  }
+
+  /* Actual card - this is the real visible card */
+  .fi-simple-layout .fi-simple-page {
+    background: white !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 1.25rem !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08) !important;
+    padding: 2.5rem 2rem !important;
+    width: 100% !important;
+  }
+
+  /* Internal Card Header */
+  .fi-simple-layout .fi-simple-header {
+    text-align: center !important;
+    margin-bottom: 2rem !important;
+  }
+
+  .fi-simple-layout .fi-simple-header-heading {
+    display: block !important;
+    font-size: 1.4rem !important;
+    font-weight: 800 !important;
+    color: #0c1a3a !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .fi-simple-layout .fi-simple-header-subheading {
+    display: block !important;
+    font-size: 0.95rem !important;
+    color: #94a3b8 !important;
+  }
+
+  /* Form Labels */
+  .fi-simple-layout label {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #475569 !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* Inputs ROUNDED */
+  .fi-simple-layout input {
+    border-radius: 0.625rem !important;
+    border: 1px solid #e2e8f0 !important;
+    padding: 0.75rem 1rem !important;
+    background: #f8fafc !important;
+  }
+
+  /* Login button ROUNDED */
+  .fi-simple-layout .fi-btn-primary {
+    background: #2563eb !important;
+    border-radius: 0.75rem !important;
+    padding: 0.85rem !important;
+    font-weight: 700 !important;
+    margin-top: 1.25rem !important;
+    width: 100% !important;
+    transition: background 0.2s ease, box-shadow 0.2s ease !important;
+  }
+
+  .fi-simple-layout .fi-btn-primary:hover {
+    background: #1d4ed8 !important;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
+  }
+
+  .fi-simple-layout .fi-btn-primary span::before {
+    content: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="white" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0l-3 3m3-3H2.25"/></svg>');
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 0.5rem;
+  }
+
+  .fi-simple-layout .fi-logo, .fi-simple-layout .fi-brand {
+    display: none !important;
+  }
+
+  .fi-simple-layout::after {
+    content: '© 2026 Qutby Collection — CV Qutby Creativindo';
+    display: block;
+    text-align: center;
+    color: #94a3b8 !important;
+    font-size: 0.85rem;
+    margin-top: 2rem;
+    padding-bottom: 1.5rem;
+  }
+
+  /* ===== HIDE TOPBAR ELEMENTS ===== */
+  .fi-topbar .fi-topbar-search-ctn,
+  .fi-topbar .fi-user-menu {
+    display: none !important;
+  }
+}
