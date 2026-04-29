@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DaftarAkun extends Model
 {
-    protected $table = 'daftar_akuns';
+    protected $table = 'daftar_akun';
 
     protected $fillable = [
         'header_akun',
@@ -36,15 +36,17 @@ class DaftarAkun extends Model
     }
 
     /**
-     * Relasi ke detail jurnal
+     * Relasi ke detail jurnal umum
+     * jurnal_umum_details.daftar_akun_id → daftar_akun.id
      */
-    public function jurnalDetails(): HasMany
+    public function jurnalUmumDetails(): HasMany
     {
-        return $this->hasMany(JurnalDetail::class, 'daftar_akun_id');
+        return $this->hasMany(JurnalUmumDetail::class, 'daftar_akun_id');
     }
 
     /**
      * Relasi ke kategori pengeluaran
+     * kategori_pengeluaran.daftar_akun_id → daftar_akun.id
      */
     public function kategoriPengeluarans(): HasMany
     {

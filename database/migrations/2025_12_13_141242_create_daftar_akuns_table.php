@@ -4,7 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     /**
      * Run the migrations.
      */
@@ -21,8 +22,8 @@ return new class extends Migration {
 
             // akun induk (optional, buat struktur bertingkat)
             $table->foreignId('parent_id')
-                ->nullable()
-                ->constrained('daftar_akun');   // self‑reference [web:400][web:411]
+                  ->nullable()
+                  ->constrained('daftar_akun');   // self‑reference [web:400][web:411]
 
             // saldo normal akun
             $table->enum('saldo_normal', ['debit', 'kredit']); // [web:300][web:398]

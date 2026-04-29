@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+
+
 class PenjualanDetail extends Model
 {
     use HasFactory;
@@ -23,6 +25,4 @@ class PenjualanDetail extends Model
     {
         return $this->belongsTo(Barang::class, 'barang_id');
     }
-
-    
 }

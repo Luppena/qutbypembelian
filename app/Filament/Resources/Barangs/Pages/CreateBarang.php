@@ -2,43 +2,38 @@
 
 namespace App\Filament\Resources\Barangs\Pages;
 
-use App\Filament\Traits\HasBackButtonHeading;
-
 use App\Filament\Resources\Barangs\BarangResource;
-use Filament\Resources\Pages\CreateRecord;
 use Filament\Actions\Action;
+use Filament\Resources\Pages\CreateRecord;
 
 class CreateBarang extends CreateRecord
 {
-    use HasBackButtonHeading;
-
-
     protected static string $resource = BarangResource::class;
 
-    /**
-     * Judul halaman
-     */
-    public function getTitle(): string
+    protected static ?string $title = 'Tambah Barang';
+
+    protected ?string $heading = 'Tambah Barang';
+
+    public function getBreadcrumb(): string
     {
-        return 'Tambah Data Barang';
+        return 'Tambah';
     }
 
-    /**
-     * 🔥 GANTI TOTAL ACTION FORM
-     * - Buat → Simpan
-     * - Hilangkan "Buat & buat lainnya"
-     */
-    protected function getFormActions(): array
+    protected function getCreateFormAction(): Action
     {
-        return [
-            Action::make('save')
-                ->label('Simpan')
-                ->submit('create'),
+        return parent::getCreateFormAction()
+            ->label('Tambah');
+    }
 
-            Action::make('cancel')
-                ->label('Batal')
-                ->color('gray')
-                ->url($this->getResource()::getUrl('index')),
-        ];
+    protected function getCreateAnotherFormAction(): Action
+    {
+        return parent::getCreateAnotherFormAction()
+            ->label('Tambah & tambah lainnya');
+    }
+
+    protected function getCancelFormAction(): Action
+    {
+        return parent::getCancelFormAction()
+            ->label('Batal');
     }
 }

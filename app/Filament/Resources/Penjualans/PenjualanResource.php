@@ -2,258 +2,394 @@
 
 namespace App\Filament\Resources\Penjualans;
 
-use App\Filament\Resources\Penjualans\Pages\{
-    CreatePenjualan,
-    EditPenjualan,
-    ListPenjualans,
-    ViewPenjualan
-};
+use App\Filament\Resources\Penjualans\Pages\CreatePenjualan;
+use App\Filament\Resources\Penjualans\Pages\EditPenjualan;
+use App\Filament\Resources\Penjualans\Pages\ListPenjualans;
+use App\Filament\Resources\Penjualans\Pages\ViewPenjualan;
 use App\Models\Barang;
 use App\Models\Penjualan;
+use App\Models\Pajak;
 use BackedEnum;
-use UnitEnum;
+use UnitEnum; 
 use Filament\Actions;
-use Filament\Forms\Components\{
-    DatePicker,
-    Repeater,
-    Select,
-    TextInput
-};
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\{
-    Grid,
-    Section
-};
-use Filament\Schemas\Components\Utilities\{
-    Get,
-    Set
-};
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use App\Filament\Traits\HasRoleAccess;
+use Filament\Schemas\Components\Section;
+use Filament\Facades\Filament;
+use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 
 class PenjualanResource extends Resource
 {
-    use HasRoleAccess;
-
-    protected static array $allowedRoles = ['finance'];
     protected static ?string $model = Penjualan::class;
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
     protected static UnitEnum|string|null $navigationGroup = 'Transaksi';
+
     protected static ?string $navigationLabel = 'Penjualan';
 
-    /* =====================================================
-     * GENERATE NO FAKTUR OTOMATIS
-     * ===================================================== */
-    protected static function generateNoFaktur(): string
-    {
-        $tahun = now()->year;
+    protected static ?string $pluralModelLabel = 'Penjualan';
 
-        $last = Penjualan::whereYear('created_at', $tahun)
-            ->where('no_faktur', 'like', "FJ-$tahun-%")
-            ->orderByDesc('no_faktur')
-            ->first();
+    protected static ?string $recordTitleAttribute = 'no_faktur';
 
-        $nomor = $last
-            ? ((int) substr($last->no_faktur, -4)) + 1
-            : 1;
+public static function form(Schema $schema): Schema
+{
+    return $schema
+        ->columns(1)
+        ->components([
+            Section::make('Informasi Faktur')
+                ->schema([
+                    DatePicker::make('tanggal_faktur')
+                        ->label('Tanggal faktur')
+                        ->required()
+                        ->default(now()),
 
-        return 'FJ-' . $tahun . '-' . str_pad($nomor, 4, '0', STR_PAD_LEFT);
-    }
+                    TextInput::make('no_faktur')
+                        ->label('No. Faktur')
+                        ->required()
+                        ->readOnly()
+                        ->maxLength(50)
+                        ->afterStateHydrated(function (TextInput $component, $state) {
+                            if (filled($state)) {
+                                return;
+                            }
 
-    /* =====================================================
-     * FORM
-     * ===================================================== */
-    public static function form(Schema $schema): Schema
-    {
-        return $schema
-            ->live() // 🔥 WAJIB agar hitungan muncul
-            ->columns(1)
-            ->components([
+                            $component->state(Penjualan::generateNextNoFaktur());
+                        }),
 
-                /* ========= INFORMASI FAKTUR ========= */
-                Section::make('Informasi Faktur')
-                    ->columns(2)
-                    ->schema([
-                        DatePicker::make('tanggal_faktur')
-                            ->label('Tanggal Faktur')
-                            ->required(),
+                    Select::make('pelanggan_id')
+                        ->label('Pelanggan')
+                        ->relationship('pelanggan', 'nama_pelanggan')
+                        ->searchable()
+                        ->preload()
+                        ->placeholder('Kosongkan jika tunai')
+                        ->nullable()
+                        ->reactive()
+                        ->required(fn (Get $get) => $get('cara_bayar') === 'kredit'),
 
-                        TextInput::make('no_faktur')
-                            ->label('No Faktur')
-                            ->default(fn () => static::generateNoFaktur())
-                            ->disabled()
-                            ->dehydrated()
-                            ->required(),
+                    Select::make('cara_bayar')
+                        ->label('Cara bayar')
+                        ->options([
+                            'tunai'  => 'Tunai',
+                            'kredit' => 'Kredit',
+                        ])
+                        ->required()
+                        ->live()
+                        ->default('tunai')
+                        ->afterStateUpdated(function (Set $set, $state) {
+                            if ($state === 'tunai') {
+                                $set('pelanggan_id', null); // 🔥 reset pelanggan
+                            }
+                        }),
 
-                        Select::make('pelanggan_id')
-                            ->label('Pelanggan')
-                            ->relationship('pelanggan', 'nama_pelanggan')
-                            ->searchable()
-                            ->preload()
-                            ->required(),
-                    ]),
+                Select::make('metode_bayar')
+                        ->label('Metode Bayar')
+                        ->options([
+                            'cash' => 'Cash',
+                            'transfer' => 'Transfer',
+                        ])
+                        ->visible(fn (Get $get) => $get('cara_bayar') === 'tunai')
+                        ->required(fn (Get $get) => $get('cara_bayar') === 'tunai')
+                        ->live(),
 
-                /* ========= DETAIL PENJUALAN ========= */
-                Section::make('Detail Penjualan')
-                    ->schema([
-                        Repeater::make('detail')
-                            ->relationship('detail')
-                            ->live() // 🔥 KUNCI
-                            ->columns(4)
-                            ->defaultItems(1)
-                            ->schema([
+                Select::make('akun_kas_id')
+                        ->label('Kas / Bank')
+                        ->relationship(
+                            name: 'akunKas',
+                            titleAttribute: 'nama_akun',
+                            modifyQueryUsing: fn (Builder $query) =>
+                                $query->where('header_akun', 1) // hanya aktiva lancar
+                        )
+                        ->preload()
+                        ->searchable()
+                        ->visible(fn (Get $get) =>
+                            $get('cara_bayar') === 'tunai' &&
+                            $get('metode_bayar') === 'transfer'
+                        )
+                        ->required(fn (Get $get) =>
+                            $get('cara_bayar') === 'tunai' &&
+                            $get('metode_bayar') === 'transfer'
+                        ),
+            
+                Select::make('termin_id')
+                        ->label('Syarat pembayaran')
+                        ->relationship('termin', 'nama')
+                        ->visible(fn ($get) => $get('cara_bayar') === 'kredit') // hanya muncul kalau kredit
+                        ->required(fn ($get) => $get('cara_bayar') === 'kredit')
+                        ->searchable()
+                        ->preload(),
+                ])
+                ->columns(2)
+                ->columnSpanFull(),
 
-                                Select::make('barang_id')
-                                    ->label('Barang')
-                                    ->relationship('barang', 'nama_barang')
-                                    ->searchable()
-                                    ->preload()
-                                    ->required()
-                                    ->reactive()
-                                    ->afterStateUpdated(function ($state, Get $get, Set $set) {
-                                        if (! $state) return;
+            Section::make('Detail Penjualan')
+                ->schema([
+                    Repeater::make('detail')
+                        ->label('')
+                        ->relationship('detail')
+                        ->afterStateHydrated(function (Get $get, Set $set) {
+                            static::updateTotals($get, $set);
+                        })
+                        ->live(debounce: 300)
+                        ->afterStateUpdated(fn (Get $get, Set $set) => static::updateTotals($get, $set))
+                        ->columns(4)
+                        ->defaultItems(1)
+                        ->required()
+                        ->itemLabel(fn ($state) => $state['barang']['nama_barang'] ?? 'Item') // tracking label
+                        ->mutateRelationshipDataBeforeCreateUsing(function (array $data): ?array {
+                            if (blank($data['barang_id'] ?? null)) {
+                                return null;
+                            }
+                            return $data;
+                        })
+                        ->mutateRelationshipDataBeforeSaveUsing(function (array $data): ?array {
+                            if (blank($data['barang_id'] ?? null)) {
+                                return null;
+                            }
+                            return $data;
+                        })
+                        
+                        ->schema([
+                            Select::make('barang_id')
+                                ->label('Barang')
+                                ->relationship('barang', 'nama_barang')
+                                ->searchable()
+                                ->preload()
+                                ->required()
+                                ->reactive()
+                                ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                                    $barang = $state ? Barang::find($state) : null;
+                                    $harga  = (float) ($barang?->harga_barang ?? 0);
 
-                                        $barang = Barang::find($state);
-                                        if (! $barang) return;
+                                    $set('harga_satuan', $harga);
 
-                                        $qty = (int) ($get('qty') ?? 1);
+                                    $qty      = (int) ($get('qty') ?? 1);
+                                    $subtotal = $qty * $harga;
+                                    $set('subtotal', $subtotal);
 
-                                        $set('harga_satuan', $barang->harga_barang);
-                                        $set('subtotal', $barang->harga_barang * $qty);
+                                    static::updateTotals($get, $set);
+                                }),
 
-                                        static::hitungTotal($get, $set);
-                                    }),
+                            TextInput::make('qty')
+                                ->label('Qty')
+                                ->numeric()
+                                ->required()
+                                ->default(1)
+                                ->suffix('pcs')
+                                ->live(debounce: 300)
+                                ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                                    $harga = (float) ($get('harga_satuan') ?? 0);
+                                    $qty   = (int) ($state ?? 0);
 
-                                TextInput::make('qty')
-                                    ->label('Qty')
-                                    ->numeric()
-                                    ->default(1)
-                                    ->reactive()
-                                    ->afterStateUpdated(function ($state, Get $get, Set $set) {
-                                        $harga = (float) ($get('harga_satuan') ?? 0);
-                                        $qty   = (int) $state;
+                                    // SUBTOTAL = BRUTO ITEM
+                                    $set('subtotal', $qty * $harga);
 
-                                        $set('subtotal', $harga * $qty);
-                                        static::hitungTotal($get, $set);
-                                    }),
+                                    static::updateTotals($get, $set);
+                                }),
 
-                                TextInput::make('harga_satuan')
-                                    ->label('Harga Jual / Satuan')
-                                    ->numeric()
-                                    ->prefix('Rp')
-                                    ->disabled()
-                                    ->reactive()
-                                    ->dehydrated(),
+                            TextInput::make('harga_satuan')
+                                ->label('Harga jual per satuan')
+                                ->numeric()
+                                ->required()
+                                ->prefix('Rp')
+                                ->reactive()
+                                ->live(debounce: 300)
+                                ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                                    $qty   = (int) ($get('qty') ?? 0);
+                                    $harga = (float) ($state ?? 0);
 
-                                TextInput::make('subtotal')
-                                    ->label('Subtotal')
-                                    ->numeric()
-                                    ->prefix('Rp')
-                                    ->disabled()
-                                    ->reactive()
-                                    ->dehydrated(),
-                            ]),
-                    ]),
+                                    // SUBTOTAL = BRUTO ITEM
+                                    $set('subtotal', $qty * $harga);
 
-                /* ========= RINGKASAN ========= */
-                Section::make('Ringkasan')
-                    ->schema([
-                        TextInput::make('total_bruto')
-                            ->label('Total Bruto')
-                            ->prefix('Rp')
-                            ->disabled()
-                            ->reactive()
-                            ->dehydrated(),
+                                    static::updateTotals($get, $set);
+                                }),
 
-                        Grid::make(2)->schema([
+                            TextInput::make('subtotal')
+                                ->label('Subtotal')
+                                ->numeric()
+                                ->required()
+                                ->prefix('Rp')
+                                ->readOnly(),
+                        ]),
+                ])
+                ->columnSpanFull(),
+
+            Section::make('Ringkasan')
+                ->schema([
+                    TextInput::make('total_bruto')
+                        ->label('Total bruto')
+                        ->numeric()
+                        ->default(0)
+                        ->prefix('Rp')
+                        ->readOnly(),
+
+                    Grid::make(['default' => 2])
+                        ->schema([
                             TextInput::make('diskon_persen')
                                 ->label('Diskon (%)')
                                 ->numeric()
                                 ->default(0)
-                                ->reactive()
-                                ->afterStateUpdated(fn (Get $get, Set $set) =>
-                                    static::hitungTotal($get, $set)
-                                )
-                                ->dehydrated(),
+                                ->suffix('%')
+                                ->disabled()         // kunci input biar nggak bisa diketik [web:161]
+                                ->dehydrated(false), // jangan masuk DB [web:72]
 
                             TextInput::make('diskon_rp')
                                 ->label('Diskon (Rp)')
+                                ->numeric()
+                                ->default(0)
                                 ->prefix('Rp')
-                                ->disabled()
+                                ->readOnly(), // boleh readOnly karena ini memang mau kesave [web:107]
+                        ])
+                        ->columnSpanFull(),
+                            TextInput::make('total_netto')
+                                ->label('Total netto')
+                                ->numeric()
+                                ->default(0)
+                                ->prefix('Rp')
+                                ->readOnly(),
+
+                            Checkbox::make('pakai_pajak')
+                                ->label(function () {
+                                    // Ambil pajak PPN untuk tampilkan di label
+                                    $pajak = Pajak::where('kode', 'PPN')->first();
+                                    return $pajak 
+                                        ? "Gunakan {$pajak->kode} " . number_format($pajak->persen, 0) . "%" 
+                                        : 'Gunakan PPN';
+                                })
+                                ->default(false)
                                 ->reactive()
-                                ->dehydrated(),
-                        ]),
+                                ->dehydrated(false) 
+                                ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                                    if ($state) {
+                                        // Ambil pajak dan set ke hidden fields
+                                        $pajak = Pajak::where('kode', 'PPN')->first();
+                                        if ($pajak) {
+                                            $set('pajak_id', $pajak->id);
+                                            $set('pajak_persen', $pajak->persen);
+                                        }
+                                    } else {
+                                        // Reset kalau uncheck
+                                        $set('pajak_id', null);
+                                        $set('pajak_persen', 0);
+                                    }
+                                    
+                                    static::updateTotals($get, $set);
+                                }),
 
-                        TextInput::make('total_netto')
-                            ->label('Total Netto')
-                            ->prefix('Rp')
-                            ->disabled()
-                            ->reactive()
-                            ->dehydrated(),
-                    ]),
-            ]);
-    }
+                            // Hidden fields untuk simpan data
+                            Hidden::make('pajak_id')
+                                ->dehydrated(true),
 
-    /* =====================================================
-     * HITUNG TOTAL
-     * ===================================================== */
-    protected static function hitungTotal(Get $get, Set $set): void
-    {
-        $detail = $get('detail') ?? [];
+                            Hidden::make('pajak_persen')
+                                ->dehydrated(true)
+                                ->default(0),
+                                            ])
+                ->columns(2)
+                ->columnSpanFull(),
+        ]);
+}
+    public static function updateTotals(Get $get, Set $set): void
+{
+    $details = collect($get('detail') ?? [])
+        ->filter(fn ($item) => filled($item['barang_id'] ?? null));
 
-        // Total Bruto = jumlah semua subtotal
-        $totalBruto = collect($detail)->sum(
-            fn ($item) => (float) ($item['subtotal'] ?? 0)
-        );
+    // Total bruto: hitung dari qty * harga_satuan (jangan ambil dari subtotal)
+    $totalBruto = $details->sum(function ($item) {
+        $qty   = (int) ($item['qty'] ?? 0);
+        $harga = (float) ($item['harga_satuan'] ?? 0);
+        return $qty * $harga;
+    });
+    $set('total_bruto', $totalBruto);
 
-        // Diskon
-        $diskonPersen = (float) ($get('diskon_persen') ?? 0);
-        $diskonRp     = $totalBruto * ($diskonPersen / 100);
+    // Diskon per item
+    $totalDiskonRp = $details->sum(function ($item) {
+        $qty   = (int) ($item['qty'] ?? 0);
+        $harga = (float) ($item['harga_satuan'] ?? 0);
 
-        // Total Netto
-        $totalNetto = max($totalBruto - $diskonRp, 0);
+        $brutoItem = $qty * $harga;
+        $diskonPersenItem = $qty > 5 ? 10 : 0;
 
-        $set('total_bruto', round($totalBruto));
-        $set('diskon_rp', round($diskonRp));
-        $set('total_netto', round($totalNetto));
-    }
+        return $brutoItem * $diskonPersenItem / 100;
+    });
+    $set('diskon_rp', $totalDiskonRp);
 
-    /* =====================================================
-     * TABLE
-     * ===================================================== */
+    // Diskon (%) efektif (karena per item)
+    $set('diskon_persen', $totalBruto > 0 ? ($totalDiskonRp / $totalBruto) * 100 : 0);
+
+    $pajakPersen = (float) ($get('pajak_persen') ?? 0);
+
+    $dpp = $totalBruto - $totalDiskonRp;
+    $pajakRp = $dpp * $pajakPersen / 100;
+
+    $set('total_netto', $dpp + $pajakRp);
+}
+
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('tanggal_faktur')->date(),
-                TextColumn::make('no_faktur')->label('No Faktur'),
-                TextColumn::make('pelanggan.nama_pelanggan')->label('Pelanggan'),
+                TextColumn::make('tanggal_faktur')
+                    ->label('Tanggal')
+                    ->date()
+                    ->sortable(),
+                TextColumn::make('no_faktur')
+                    ->label('No. Faktur')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('pelanggan.nama_pelanggan')
+                    ->label('Pelanggan') 
+                    ->searchable(),
                 TextColumn::make('total_netto')
                     ->label('Total')
-                    ->formatStateUsing(fn ($state) =>
-                        'Rp ' . number_format($state ?? 0, 0, ',', '.')
+                    ->formatStateUsing(
+                        fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.')
                     ),
+                TextColumn::make('cara_bayar')
+                    ->label('Cara bayar')
+                    ->badge(),
+                TextColumn::make('termin.nama')  // ← TAMBAHAN INI
+                ->label('Termin')
+                ->searchable()
+                ->sortable()
+                ->default('-'),
             ])
             ->recordActions([
                 Actions\ViewAction::make(),
-                Actions\EditAction::make(),
-                Actions\DeleteAction::make(),
+                //Actions\EditAction::make(),
+                //Actions\DeleteAction::make(),
+            ])
+            ->toolbarActions([
+                Actions\BulkActionGroup::make([
+                    Actions\DeleteBulkAction::make(),
+                ]),
             ]);
     }
 
-    /* =====================================================
-     * PAGES
-     * ===================================================== */
     public static function getPages(): array
     {
         return [
             'index'  => ListPenjualans::route('/'),
             'create' => CreatePenjualan::route('/create'),
             'view'   => ViewPenjualan::route('/{record}'),
-            'edit'   => EditPenjualan::route('/{record}/edit'),
+            //'edit'   => EditPenjualan::route('/{record}/edit'),
         ];
     }
+    
+    public static function shouldRegisterNavigation(): bool
+    {
+        return Filament::getCurrentPanel()?->getId() === 'sales';
+        return Filament::getCurrentPanel()?->getId() === 'admin';
+    }
+
 }

@@ -14,7 +14,7 @@ class ListBarangs extends ListRecords
     {
         return [
             CreateAction::make()
-                ->label('Tambah Data Barang'),
+                ->label('Tambah Barang'), // ← tambahin ini
         ];
     }
 }

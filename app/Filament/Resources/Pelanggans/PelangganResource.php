@@ -8,6 +8,7 @@ use App\Filament\Resources\Pelanggans\Pages\ListPelanggans;
 use App\Filament\Resources\Pelanggans\Pages\ViewPelanggan;
 use App\Filament\Resources\Pelanggans\Schemas\PelangganForm;
 use App\Filament\Resources\Pelanggans\Tables\PelanggansTable;
+use App\Filament\Resources\Pelanggans\RelationManagers\PiutangRelationManager;
 use App\Models\Pelanggan;
 use BackedEnum;
 use UnitEnum;
@@ -16,13 +17,9 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Filament\Facades\Filament;
-use App\Filament\Traits\HasRoleAccess;
 
 class PelangganResource extends Resource
 {
-    use HasRoleAccess;
-
-    protected static array $allowedRoles = ['finance'];
     protected static ?string $model = Pelanggan::class;
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
     protected static UnitEnum|string|null $navigationGroup = 'Master Data';
@@ -34,8 +31,7 @@ class PelangganResource extends Resource
     protected static ?string $pluralModelLabel = 'Pelanggan';
 
     // Field yang dipakai sebagai judul record
-protected static ?string $recordTitleAttribute = 'nama_pelanggan';
-
+    protected static ?string $recordTitleAttribute = 'nama_pelanggan';
 
     public static function form(Schema $schema): Schema
     {
@@ -47,7 +43,12 @@ protected static ?string $recordTitleAttribute = 'nama_pelanggan';
         return PelanggansTable::configure($table);
     }
 
-
+    public static function getRelations(): array
+    {
+        return [
+            PiutangRelationManager::class,
+        ];
+    }
 
     public static function getPages(): array
     {
@@ -57,6 +58,10 @@ protected static ?string $recordTitleAttribute = 'nama_pelanggan';
             'edit'   => EditPelanggan::route('/{record}/edit'),
             'view'   => ViewPelanggan::route('/{record}'),
         ];
+    }
+    public static function shouldRegisterNavigation(): bool
+    {
+        return Filament::getCurrentPanel()?->getId() === 'sales';
     }
 
 }

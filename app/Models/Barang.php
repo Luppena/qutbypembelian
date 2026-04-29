@@ -4,47 +4,54 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+
+// tambahan
 use Illuminate\Support\Facades\DB;
 
-class Barang extends Model
+class barang extends Model
 {
     use HasFactory;
 
-    protected $table = 'barangs';
+    protected $table = 'barang'; // Nama tabel eksplisit
 
     protected $guarded = [];
 
-    public static function getKodeBarang()
+    public static function generateNextKodeBarang(): string
     {
-        $sql = "SELECT IFNULL(MAX(kode_barang), 'BRG000') as kode_barang 
-                FROM barangs"; // ✅ sudah plural
+        $last = static::query()
+            ->where('kode_barang', 'like', 'BRG-%')
+            ->orderByDesc('id')
+            ->value('kode_barang');
 
-        $kodebarang = DB::select($sql);
+        $lastNumber = $last ? (int) substr($last, 4) : 0;
+        $nextNumber = $lastNumber + 1;
 
-        $kd = $kodebarang[0]->kode_barang ?? 'BRG000';
-
-        $noawal  = substr($kd, -3);
-        $noakhir = (int) $noawal + 1;
-
-        return 'BRG' . str_pad($noakhir, 3, "0", STR_PAD_LEFT);
+        return 'BRG-' . str_pad((string) $nextNumber, 3, '0', STR_PAD_LEFT);
     }
 
+    // Dengan mutator ini, setiap kali data harga_barang dikirim ke database, koma akan otomatis dihapus.
     public function setHargaBarangAttribute($value)
     {
+        // Hapus koma (,) dari nilai sebelum menyimpannya ke database
         $this->attributes['harga_barang'] = str_replace('.', '', $value);
     }
-
+    
     public function penjualanBarang()
     {
         return $this->hasMany(PenjualanBarang::class, 'barang_id');
     }
-
-    public function stokBarang()
+     public function stokBarang()
     {
         return $this->hasMany(StokBarang::class, 'barang_id');
     }
-     public function kategori()
+
+    public function kurangiStok(int $qty): void
     {
-        return $this->belongsTo(Kategori::class, 'kategori_id');
+        if ($this->stok < $qty) {
+            throw new \Exception("Stok {$this->nama_barang} tidak cukup! (Tersedia: {$this->stok}, Diminta: {$qty})");
+        }
+        $this->decrement('stok', $qty);
     }
+
 }
+

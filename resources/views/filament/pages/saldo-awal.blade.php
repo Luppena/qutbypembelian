@@ -1,11 +1,15 @@
 <x-filament-panels::page>
-    <form wire:submit.prevent="save">
+
+    <form wire:submit.prevent="simpan">
+        
         {{ $this->form }}
 
-        <div style="display:flex; justify-content:flex-end; margin-top:8px;">
-            <x-filament::button type="submit" color="danger">
+        <div class="mt-4 flex justify-end">
+            <x-filament::button type="submit">
                 Simpan Saldo Awal
             </x-filament::button>
         </div>
+
     </form>
+
 </x-filament-panels::page>

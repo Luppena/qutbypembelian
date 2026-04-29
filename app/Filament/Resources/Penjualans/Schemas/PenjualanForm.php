@@ -17,6 +17,7 @@ class PenjualanForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
+
             DatePicker::make('tanggal_faktur')
                 ->label('Tanggal faktur')
                 ->required()
@@ -24,11 +25,32 @@ class PenjualanForm
 
             TextInput::make('no_faktur')
                 ->label('No. Faktur')
+                ->readOnly()
                 ->required()
                 ->maxLength(50),
 
-            // dst: pelanggan, termin, cara_bayar...
+            // 🔥 CARA BAYAR (WAJIB)
+            Select::make('cara_bayar')
+                ->label('Tipe Pembayaran')
+                ->options([
+                    'tunai' => 'Tunai',
+                    'kredit' => 'Kredit',
+                ])
+                ->required()
+                ->reactive(),
 
+            // 🔥 PELANGGAN (DINAMIS)
+            Select::make('pelanggan_id')
+                ->label('Pelanggan')
+                ->relationship('pelanggan', 'nama')
+                ->searchable()
+                ->preload()
+                ->placeholder('Kosongkan jika tunai')
+                ->nullable()
+                ->reactive()
+                ->required(fn (Get $get) => $get('cara_bayar') === 'kredit'),
+
+            // DETAIL
             Repeater::make('detail')
                 ->label('Detail penjualan')
                 ->relationship('detail')
@@ -87,16 +109,18 @@ class PenjualanForm
                         ->numeric()
                         ->readOnly()
                         ->required(),
-                    ]),
+                ]),
+
             TextInput::make('total_bruto')
-                 ->label('Total bruto')
-                 ->numeric()
-                 ->default(0)
-                 ->readOnly(),
-            // Dropdown pajak (kode) + persen otomatis
+                ->label('Total bruto')
+                ->numeric()
+                ->default(0)
+                ->readOnly(),
+
+            // PAJAK
             Select::make('pajak_id')
                 ->label('Pajak')
-                ->relationship('pajak', 'kode') // relasi pajak() di model Penjualan
+                ->relationship('pajak', 'kode')
                 ->searchable()
                 ->preload()
                 ->reactive()

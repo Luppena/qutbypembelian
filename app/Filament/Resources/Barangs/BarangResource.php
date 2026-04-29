@@ -5,7 +5,7 @@ namespace App\Filament\Resources\Barangs;
 use App\Filament\Resources\Barangs\Pages\CreateBarang;
 use App\Filament\Resources\Barangs\Pages\EditBarang;
 use App\Filament\Resources\Barangs\Pages\ListBarangs;
-use App\Filament\Resources\Barangs\Pages\ViewBarangs;
+use App\Filament\Resources\Barangs\Pages\ViewBarang;
 use App\Filament\Resources\Barangs\Schemas\BarangForm;
 use App\Filament\Resources\Barangs\Tables\BarangsTable;
 use App\Models\Barang;
@@ -14,13 +14,10 @@ use UnitEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use App\Filament\Traits\HasRoleAccess;
+use Filament\Facades\Filament;
 
 class BarangResource extends Resource
 {
-    use HasRoleAccess;
-
-    protected static array $allowedRoles = ['operasional'];
     protected static ?string $model = Barang::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
@@ -30,7 +27,7 @@ class BarangResource extends Resource
 
     protected static ?string $navigationLabel = 'Barang';
 
-    protected static ?string $pluralModelLabel = 'Daftar Barang';
+    protected static ?string $pluralModelLabel = 'Barang';
 
     protected static ?string $recordTitleAttribute = 'nama_barang';
 
@@ -54,10 +51,15 @@ class BarangResource extends Resource
     public static function getPages(): array
     {
         return [
-        'index'  => Pages\ListBarangs::route('/'),
-        'create' => Pages\CreateBarang::route('/create'),
-        'edit'   => Pages\EditBarang::route('/{record}/edit'),
-        'view'   => Pages\ViewBarang::route('/{record}'),
+            'index'  => ListBarangs::route('/'),
+            'create' => CreateBarang::route('/create'),
+            'edit'   => EditBarang::route('/{record}/edit'),
+            'view'   => ViewBarang::route('/{record}'),
         ];
+    }
+    
+    public static function shouldRegisterNavigation(): bool
+    {
+        return Filament::getCurrentPanel()?->getId() === 'sales';
     }
 }

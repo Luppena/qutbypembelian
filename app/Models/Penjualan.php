@@ -25,14 +25,26 @@ class Penjualan extends Model
         return $this->belongsTo(Pelanggan::class, 'pelanggan_id');
     }
 
+    public function termin(): BelongsTo
+    {
+        return $this->belongsTo(TerminPembayaran::class, 'termin_id');
+    }
 
+    public function detail(): HasMany
+    {
+        return $this->hasMany(PenjualanDetail::class, 'penjualan_id');
+    }
 
-public function detail(): HasMany
-{
-    return $this->hasMany(PenjualanDetail::class, 'penjualan_id');
-}
+    // 1 penjualan = 1 piutang (tunai maupun kredit, sampai dilunasi)
+    public function piutang(): HasOne
+    {
+        return $this->hasOne(Piutang::class, 'penjualan_id');
+    }
 
-
+    public function pajak(): BelongsTo
+    {
+        return $this->belongsTo(Pajak::class, 'pajak_id');
+    }
 
     public function hitungTotalHpp(): int
     {
@@ -57,9 +69,9 @@ public function detail(): HasMany
         return $this->hasMany(Pembayaran::class);
     }
 
-    public function vendor()
-{
-    return $this->belongsTo(Vendor::class);
-}
+    public function akunKas()
+    {
+        return $this->belongsTo(\App\Models\DaftarAkun::class, 'akun_kas_id');
+    }
 
 }

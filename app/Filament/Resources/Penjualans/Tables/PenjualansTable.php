@@ -26,6 +26,10 @@ class PenjualansTable
                 TextColumn::make('pelanggan.nama_pelanggan')
                     ->label('Pelanggan')
                     ->searchable(),
+                TextColumn::make('termin.nama')
+                    ->label('Termin')
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('total_netto')
                     ->label('Total')
                     ->formatStateUsing(
@@ -34,6 +38,8 @@ class PenjualansTable
                 TextColumn::make('cara_bayar')
                     ->label('Cara bayar')
                     ->badge(),
+
+                
             ])
             ->filters([
                 //

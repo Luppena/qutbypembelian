@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\DaftarAkuns\Tables;
 
 use App\Models\DaftarAkun;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Actions;
@@ -65,6 +67,10 @@ class DaftarAkunsTable
                 Actions\DeleteAction::make(),
                 Actions\ViewAction::make(),
             ])
-            ->bulkActions([]);
+            ->bulkActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                ]),
+            ]);
     }
 }
