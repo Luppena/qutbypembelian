@@ -151,19 +151,19 @@ class LaporanLabaRugi extends Page implements HasForms
 
         // Beban operasional: header_akun = 5, exclude akun HPP(511)
         $bebanRows = (clone $base)
-            ->join('daftar_akun', 'daftar_akun.id', '=', 'jurnal_umum_details.daftar_akun_id')
-            ->where('daftar_akun.header_akun', 5)
-            ->where('daftar_akun.id', '!=', $akunHpp->id)
-            ->groupBy('daftar_akun.id', 'daftar_akun.kode_akun', 'daftar_akun.nama_akun')
+            ->join('daftar_akuns', 'daftar_akuns.id', '=', 'jurnal_umum_details.daftar_akun_id')
+            ->where('daftar_akuns.header_akun', 5)
+            ->where('daftar_akuns.id', '!=', $akunHpp->id)
+            ->groupBy('daftar_akuns.id', 'daftar_akuns.kode_akun', 'daftar_akuns.nama_akun')
             ->selectRaw("
-                daftar_akun.id,
-                daftar_akun.kode_akun,
-                daftar_akun.nama_akun,
+                daftar_akuns.id,
+                daftar_akuns.kode_akun,
+                daftar_akuns.nama_akun,
                 COALESCE(SUM(CASE WHEN posisi='debit' THEN nominal ELSE 0 END),0) -
                 COALESCE(SUM(CASE WHEN posisi='kredit' THEN nominal ELSE 0 END),0)
                 AS nilai
             ")
-            ->orderBy('daftar_akun.kode_akun')
+            ->orderBy('daftar_akuns.kode_akun')
             ->get()
             ->toArray();
 

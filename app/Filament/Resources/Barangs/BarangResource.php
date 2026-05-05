@@ -18,6 +18,10 @@ use Filament\Facades\Filament;
 
 class BarangResource extends Resource
 {
+    use \App\Filament\Traits\HasRoleAccess;
+
+    protected static array $allowedRoles = ['finance', 'operasional'];
+
     protected static ?string $model = Barang::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
@@ -58,8 +62,5 @@ class BarangResource extends Resource
         ];
     }
     
-    public static function shouldRegisterNavigation(): bool
-    {
-        return Filament::getCurrentPanel()?->getId() === 'sales';
-    }
+
 }

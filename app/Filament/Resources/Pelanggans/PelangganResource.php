@@ -20,6 +20,10 @@ use Filament\Facades\Filament;
 
 class PelangganResource extends Resource
 {
+    use \App\Filament\Traits\HasRoleAccess;
+
+    protected static array $allowedRoles = ['finance', 'operasional'];
+
     protected static ?string $model = Pelanggan::class;
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
     protected static UnitEnum|string|null $navigationGroup = 'Master Data';
@@ -59,9 +63,6 @@ class PelangganResource extends Resource
             'view'   => ViewPelanggan::route('/{record}'),
         ];
     }
-    public static function shouldRegisterNavigation(): bool
-    {
-        return Filament::getCurrentPanel()?->getId() === 'sales';
-    }
+
 
 }

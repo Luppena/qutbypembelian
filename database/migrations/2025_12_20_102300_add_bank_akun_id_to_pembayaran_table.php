@@ -15,7 +15,7 @@ return new class extends Migration
             $table->foreignId('bank_akun_id')
                 ->nullable()
                 ->after('metode_bayar')
-                ->constrained('daftar_akun')
+                ->constrained('daftar_akuns')
                 ->nullOnDelete();
         });
     }

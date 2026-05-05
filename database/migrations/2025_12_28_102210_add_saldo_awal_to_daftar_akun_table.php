@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('daftar_akun', function (Blueprint $table) {
+        Schema::table('daftar_akuns', function (Blueprint $table) {
             $table->decimal('saldo_awal_nominal', 15, 2)
                 ->nullable()
                 ->after('saldo_normal');
@@ -32,7 +32,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('daftar_akun', function (Blueprint $table) {
+        Schema::table('daftar_akuns', function (Blueprint $table) {
             $table->dropColumn([
                 'saldo_awal_nominal',
                 'saldo_awal_posisi',

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DaftarAkun extends Model
 {
-    protected $table = 'daftar_akun';
+    protected $table = 'daftar_akuns';
 
     protected $fillable = [
         'header_akun',

@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('daftar_akun', function (Blueprint $table) {
+        Schema::create('daftar_akuns', function (Blueprint $table) {
             $table->id();
 
             // 1 = Aset, 2 = Utang, 3 = Modal, 4 = Pendapatan, 5 = Beban, dll
@@ -23,7 +23,7 @@ return new class extends Migration
             // akun induk (optional, buat struktur bertingkat)
             $table->foreignId('parent_id')
                   ->nullable()
-                  ->constrained('daftar_akun');   // self‑reference
+                  ->constrained('daftar_akuns');   // self‑reference
 
             // saldo normal akun
             $table->enum('saldo_normal', ['debit', 'kredit']);
@@ -37,6 +37,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('daftar_akun');
+        Schema::dropIfExists('daftar_akuns');
     }
 };

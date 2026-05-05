@@ -16,7 +16,7 @@ return new class extends Migration
                 ->onDelete('cascade');
 
             $table->foreignId('daftar_akun_id')
-                ->constrained('daftar_akun')
+                ->constrained('daftar_akuns')
                 ->onDelete('restrict');
 
             $table->enum('posisi', ['debit', 'kredit']);

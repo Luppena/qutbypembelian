@@ -21,6 +21,10 @@ use Filament\Facades\Filament;
 
 class DaftarAkunResource extends Resource
 {
+    use \App\Filament\Traits\HasRoleAccess;
+
+    protected static array $allowedRoles = ['finance'];
+
     protected static ?string $model = DaftarAkun::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
@@ -55,8 +59,5 @@ class DaftarAkunResource extends Resource
         ];
     }
     
-    public static function shouldRegisterNavigation(): bool
-    {
-        return Filament::getCurrentPanel()?->getId() === 'finance';
-    }
+
 }

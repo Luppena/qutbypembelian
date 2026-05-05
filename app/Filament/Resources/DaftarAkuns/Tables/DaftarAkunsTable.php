@@ -67,10 +67,6 @@ class DaftarAkunsTable
                 Actions\DeleteAction::make(),
                 Actions\ViewAction::make(),
             ])
-            ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ]);
+            ->bulkActions([]);
     }
 }

@@ -13,7 +13,8 @@ return new class extends Migration
             $table->string('kode_pengeluaran')->unique();
             $table->date('tanggal_pengeluaran');
             $table->foreignId('kategori_pengeluaran_id')
-                  ->constrained('kategori_pengeluaran'); // tabel kategori
+                  ->nullable()
+                  ->constrained('kategori_pengeluarans'); // tabel kategori
             $table->string('deskripsi')->nullable();
             $table->decimal('jumlah', 15, 2);
             $table->enum('status', ['dibayar', 'belum_dibayar'])

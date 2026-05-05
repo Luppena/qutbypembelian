@@ -11,19 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('daftar_akun', function (Blueprint $table) {
-            if (Schema::hasColumn('daftar_akun', 'saldo_awal_nominal')) {
+        Schema::table('daftar_akuns', function (Blueprint $table) {
+            if (Schema::hasColumn('daftar_akuns', 'saldo_awal_nominal')) {
                 $table->dropColumn('saldo_awal_nominal');
             }
         });
     }
 
     /**
-     * DOWN → balikin kolom (rollback)
+     * Reverse the migrations.
      */
     public function down(): void
     {
-        Schema::table('daftar_akun', function (Blueprint $table) {
+        Schema::table('daftar_akuns', function (Blueprint $table) {
             $table->decimal('saldo_awal_nominal', 15, 2)
                   ->default(0)
                   ->after('saldo_normal');
