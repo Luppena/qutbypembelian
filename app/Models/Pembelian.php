@@ -21,26 +21,34 @@ class Pembelian extends Model
         'ppn',
         'total_akhir',
         'status',
+        'estimasi_datang',
+        'status_pengiriman',
+        'syarat_pembayaran',
+        'referensi_pr',
+        'catatan_vendor',
     ];
 
     protected $casts = [
-        'tanggal' => 'date',
-        'ppn' => 'boolean',
-        'total' => 'float',
-        'diskon' => 'float',
-        'total_akhir' => 'float',
+        'tanggal'           => 'date',
+        'estimasi_datang'   => 'date',
+        'ppn'               => 'boolean',
+        'total'             => 'float',
+        'diskon'            => 'float',
+        'total_akhir'       => 'float',
     ];
 
     /**
      * Generate nomor pembelian otomatis
-     * Format: PB-YYYY-0001
+     * Format: PO-YYYY-MM-0001
      */
     public static function generateNomorPembelian(): string
     {
         $tahun = Carbon::now()->format('Y');
+        $bulan = Carbon::now()->format('m');
+        $prefix = "PO-$tahun-$bulan-";
 
         $lastNomor = self::query()
-            ->where('nomor', 'like', "PB-$tahun-%")
+            ->where('nomor', 'like', "$prefix%")
             ->orderByDesc('id')
             ->value('nomor');
 
@@ -51,7 +59,7 @@ class Pembelian extends Model
             $nextNumber = $lastSeq + 1;
         }
 
-        return "PB-$tahun-" . str_pad((string) $nextNumber, 4, '0', STR_PAD_LEFT);
+        return $prefix . str_pad((string) $nextNumber, 4, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -71,6 +79,14 @@ class Pembelian extends Model
     }
 
     /**
+     * Relasi ke GRN (bisa lebih dari satu jika partial)
+     */
+    public function grns(): HasMany
+    {
+        return $this->hasMany(Grn::class, 'pembelian_id');
+    }
+
+    /**
      * Relasi ke Penerimaan Barang (1 Pembelian = 1 Penerimaan Barang)
      */
     public function penerimaanBarang(): HasOne
@@ -87,83 +103,27 @@ class Pembelian extends Model
         return $this->hasOne(FakturPembelian::class, 'pembelian_id');
     }
 
-    protected static function booted()
+    public function refreshStatusPenerimaan(): void
     {
-        static::created(function (self $pembelian) {
-            $tanggal = $pembelian->tanggal ?? now()->toDateString();
-            $ref     = $pembelian->nomor ?? ('PB-' . $pembelian->id);
+        $details = $this->details()
+            ->with(['grnDetails.grn'])
+            ->get();
 
-            // ✅ Anti-duplikasi: skip jika jurnal sudah ada  
-            if (\App\Models\Jurnal::where('referensi', $ref)->exists()) {
-                return;
-            }
+        if ($details->isEmpty()) {
+            $this->update(['status' => 'menunggu']);
+            return;
+        }
 
-            // Load relasi vendor jika belum di-load
-            $pembelian->loadMissing('vendor');
+        $statuses = $details->map(fn (PembelianDetail $detail) => $detail->status_penerimaan);
 
-            // Dapatkan/buat akun Persediaan (Metode Perpetual)
-            $akunPersediaan = \App\Models\DaftarAkun::firstOrCreate(
-                ['kode_akun' => '114'],
-                ['nama_akun' => 'Persediaan Barang Dagang', 'saldo_normal' => 'debit']
-            );
+        $status = match (true) {
+            $statuses->every(fn (string $status) => $status === 'belum_diterima') => 'menunggu',
+            $statuses->every(fn (string $status) => $status === 'diterima_lengkap') => 'selesai',
+            default => 'partial',
+        };
 
-            // Dapatkan/buat akun Utang
-            $akunUtang = \App\Models\DaftarAkun::firstOrCreate(
-                ['kode_akun' => '211'],
-                ['nama_akun' => 'Utang Usaha', 'saldo_normal' => 'kredit']
-            );
-
-            $akunPpnMasukan = null;
-            if ($pembelian->ppn) {
-                $akunPpnMasukan = \App\Models\DaftarAkun::firstOrCreate(
-                    ['kode_akun' => '115'],
-                    ['nama_akun' => 'PPN Masukan', 'saldo_normal' => 'debit']
-                );
-            }
-
-            // Buat header Jurnal
-            $jurnal = \App\Models\Jurnal::create([
-                'tanggal'    => $tanggal,
-                'referensi'  => $ref,
-                'keterangan' => 'Pembelian barang dagang secara kredit',
-            ]);
-
-            // Hitung nilai DPP & PPN dari master Pembelian
-            $total = (float) ($pembelian->total ?? 0);
-            $diskonNominal = $total * ((float) ($pembelian->diskon ?? 0) / 100);
-            $dpp = max($total - $diskonNominal, 0);
-            
-            $ppnNominal = $pembelian->ppn ? $dpp * 0.11 : 0;
-            $totalAkhir = (float) ($pembelian->total_akhir ?? 0);
-            if ($totalAkhir <= 0) {
-                $totalAkhir = $dpp + $ppnNominal;
-            }
-
-            // [D] Persediaan
-            $jurnal->details()->create([
-                'daftar_akun_id' => $akunPersediaan->id,
-                'keterangan'     => 'Persediaan masuk ' . $pembelian->nomor,
-                'debit'          => $dpp,
-                'kredit'         => 0,
-            ]);
-
-            // [D] PPN Masukan
-            if ($pembelian->ppn && $ppnNominal > 0 && $akunPpnMasukan) {
-                $jurnal->details()->create([
-                    'daftar_akun_id' => $akunPpnMasukan->id,
-                    'keterangan'     => 'Pajak masukan',
-                    'debit'          => $ppnNominal,
-                    'kredit'         => 0,
-                ]);
-            }
-
-            // [K] Utang Usaha
-            $jurnal->details()->create([
-                'daftar_akun_id' => $akunUtang->id,
-                'keterangan'     => 'Kewajiban utang Pemasok',
-                'debit'          => 0,
-                'kredit'         => $totalAkhir,
-            ]);
-        });
+        $this->update(['status' => $status]);
     }
+
+
 }

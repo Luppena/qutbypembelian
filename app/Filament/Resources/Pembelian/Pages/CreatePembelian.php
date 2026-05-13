@@ -24,6 +24,8 @@ class CreatePembelian extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['nomor'] = Pembelian::generateNomorPembelian();
+        $data['status'] = 'menunggu';
+
         return $data;
     }
 

@@ -61,6 +61,19 @@ class BarangResource extends Resource
             'view'   => ViewBarang::route('/{record}'),
         ];
     }
-    
 
+    public static function canEdit($record): bool
+    {
+        return false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return Filament::getCurrentPanel()?->getId() === 'admin';
+    }
 }

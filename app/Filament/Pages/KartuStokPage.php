@@ -4,23 +4,28 @@ namespace App\Filament\Pages;
 
 use Filament\Pages\Page;
 use App\Filament\Traits\HasRoleAccess;
+use App\Models\Barang;
 use App\Services\KartuStokService;
+use Livewire\Attributes\Url;
 
 class KartuStokPage extends Page
 {
     use HasRoleAccess;
 
     // Hanya bisa diakses oleh Admin & Operasional
-    protected static array $allowedRoles = ['operasional'];
+    protected static array $allowedRoles = ['admin', 'operasional'];
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-list';
     protected static string|\UnitEnum|null   $navigationGroup = 'Laporan';
-    protected static ?string $navigationLabel = 'Kartu Stok (FIFO)';
+    protected static ?string $navigationLabel = 'Kartu Stok FIFO';
     protected static ?string $title           = 'Kartu Stok (Metode FIFO)';
+    protected static ?int    $navigationSort  = 2;
     protected string $view = 'filament.pages.kartu-stok';
 
     public string $bulan = '';
     public string $tahun = '';
+    #[Url(as: 'barang')]
+    public string $barangId = '';
 
     public function mount(): void
     {
@@ -47,5 +52,23 @@ class KartuStokPage extends Page
     {
         return app(KartuStokService::class)
             ->getLaporanData($this->bulan, $this->tahun);
+    }
+
+    public function getKartuPerpetualData(): array
+    {
+        if ($this->barangId === '') {
+            return [];
+        }
+
+        return app(KartuStokService::class)
+            ->getPerpetualData($this->bulan, $this->tahun, (int) $this->barangId);
+    }
+
+    public function getBarangOptions(): array
+    {
+        return Barang::query()
+            ->orderBy('nama_barang')
+            ->pluck('nama_barang', 'id')
+            ->all();
     }
 }

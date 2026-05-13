@@ -25,12 +25,12 @@ class CreatePenjualan extends CreateRecord
 
     protected function getCreateFormAction(): Action
     {
-        return parent::getCreateFormAction()->label('Tambah');
+        return parent::getCreateFormAction()->label('Simpan');
     }
 
     protected function getCreateAnotherFormAction(): Action
     {
-        return parent::getCreateAnotherFormAction()->label('Tambah & tambah lainnya');
+        return parent::getCreateAnotherFormAction()->hidden();
     }
 
     protected function getCancelFormAction(): Action

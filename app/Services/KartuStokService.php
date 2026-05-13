@@ -12,9 +12,70 @@ use App\Models\StokFifoLayer;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class KartuStokService
 {
+    public function getHargaBeliTerakhir(int $barangId): array
+    {
+        $entry = KartuStok::query()
+            ->where('barang_id', $barangId)
+            ->where('masuk', '>', 0)
+            ->orderByDesc('tanggal')
+            ->orderByDesc('id')
+            ->first();
+
+        return [
+            'harga' => (float) ($entry?->harga ?? 0),
+            'tanggal' => $entry?->tanggal,
+        ];
+    }
+
+    public function getHargaJualTerakhir(int $barangId): array
+    {
+        $entry = KartuStok::query()
+            ->where('barang_id', $barangId)
+            ->where('keluar', '>', 0)
+            ->orderByDesc('tanggal')
+            ->orderByDesc('id')
+            ->first();
+
+        return [
+            'harga' => (float) ($entry?->hpp ?? 0),
+            'tanggal' => $entry?->tanggal,
+        ];
+    }
+
+    public function syncHargaBarang(Barang|int $barang): void
+    {
+        $barang = $barang instanceof Barang ? $barang : Barang::find($barang);
+
+        if (! $barang) {
+            return;
+        }
+
+        $hargaBeli = $this->getHargaBeliTerakhir($barang->id)['harga'];
+        $hargaJual = $this->getHargaJualTerakhir($barang->id)['harga'];
+
+        $updates = [];
+
+        if (Schema::hasColumn('barang', 'harga_beli')) {
+            $updates['harga_beli'] = $hargaBeli;
+        }
+
+        if (Schema::hasColumn('barang', 'harga_jual')) {
+            $updates['harga_jual'] = $hargaJual;
+        }
+
+        if (Schema::hasColumn('barang', 'harga_barang')) {
+            $updates['harga_barang'] = $hargaJual;
+        }
+
+        if ($updates !== []) {
+            $barang->forceFill($updates)->saveQuietly();
+        }
+    }
+
     /**
      * Dijalankan dari PembelianObserver (created / updated)
      * STOK MASUK: dari Pembelian (langsung)
@@ -65,22 +126,31 @@ class KartuStokService
                     'source_id'      => $pembelian->id,
                     'source_line_id' => $d->id,
                 ]);
+
+                $this->syncHargaBarang($barang);
             }
         });
     }
 
     public function rollbackPembelian(int $pembelianId): void
     {
+        $barangIds = collect();
+
         // Revert barang stok & delete fifo layer
         $layers = StokFifoLayer::where('source_type', 'pembelian')->where('source_id', $pembelianId)->get();
         foreach ($layers as $layer) {
             /** @var \App\Models\StokFifoLayer $layer */
             Barang::where('id', $layer->barang_id)->decrement('stok', $layer->qty_masuk);
+            $barangIds->push($layer->barang_id);
             $layer->delete();
         }
 
         // Delete kartu_stok
         KartuStok::where('source_type', 'pembelian')->where('source_id', $pembelianId)->delete();
+
+        $barangIds
+            ->unique()
+            ->each(fn (int $barangId) => $this->syncHargaBarang($barangId));
     }
 
     /**
@@ -129,6 +199,7 @@ class KartuStokService
 
                     // Catat Kartu Stok (bisa multi row jika 1 order ambil dari 2 layer berbeda harganya)
                     KartuStok::create([
+                        'barang_id'      => $it->barang_id,
                         'tanggal'        => $penjualan->tanggal_faktur,
                         'is_saldo_awal'  => 0,
                         'keterangan'     => $keteranganMap . ' (HPP '.number_format($hargaLayer,0,',','.').')',
@@ -152,6 +223,7 @@ class KartuStokService
                     $stokSekarang = (int) ($barang->fresh()->stok ?? 0);
 
                     KartuStok::create([
+                        'barang_id'      => $it->barang_id,
                         'tanggal'        => $penjualan->tanggal_faktur,
                         'is_saldo_awal'  => 0,
                         'keterangan'     => $keteranganMap . ' (Stok Kurang/Minus)',
@@ -165,6 +237,8 @@ class KartuStokService
                         'source_line_id' => $it->id,
                     ]);
                 }
+
+                $this->syncHargaBarang($barang);
             }
 
             // Update HPP Penjualan di header
@@ -217,7 +291,9 @@ class KartuStokService
             }
 
             $barang->increment('stok', (int) $k->keluar);
+            $barangId = $k->barang_id;
             $k->delete();
+            $this->syncHargaBarang($barangId);
         }
     }
 
@@ -265,6 +341,228 @@ class KartuStokService
         }
 
         return $laporan;
+    }
+
+    /**
+     * Kartu stok FIFO perpetual: satu kartu terpisah per barang, dengan layer
+     * persediaan aktif setelah setiap transaksi.
+     */
+    public function getPerpetualData(string $bulan, string $tahun, ?int $barangId = null): array
+    {
+        $tglMulai = Carbon::createFromDate((int) $tahun, (int) $bulan, 1)->startOfMonth();
+        $tglAkhir = $tglMulai->copy()->endOfMonth();
+
+        $barangIds = KartuStok::query()
+            ->where('tanggal', '<=', $tglAkhir->format('Y-m-d'))
+            ->whereNotNull('barang_id')
+            ->when($barangId, fn ($query) => $query->where('barang_id', $barangId))
+            ->distinct()
+            ->pluck('barang_id');
+
+        $barangs = Barang::query()
+            ->whereIn('id', $barangIds)
+            ->orderBy('nama_barang')
+            ->get();
+
+        return $barangs
+            ->map(fn (Barang $barang) => $this->buildPerpetualCard($barang, $tglMulai, $tglAkhir))
+            ->filter(fn (array $card) => $card['saldo_awal_nilai'] > 0 || $card['total_pembelian'] > 0 || $card['total_hpp'] > 0 || $card['persediaan_akhir'] > 0)
+            ->values()
+            ->all();
+    }
+
+    private function buildPerpetualCard(Barang $barang, Carbon $tglMulai, Carbon $tglAkhir): array
+    {
+        $entries = KartuStok::query()
+            ->where('barang_id', $barang->id)
+            ->where('tanggal', '<=', $tglAkhir->format('Y-m-d'))
+            ->orderBy('tanggal')
+            ->orderBy('id')
+            ->get();
+
+        $layers = [];
+        $saldoAwalLayers = [];
+
+        foreach ($entries->filter(fn (KartuStok $entry) => Carbon::parse($entry->tanggal)->lt($tglMulai)) as $entry) {
+            $this->applyEntryToLayers($layers, $entry);
+        }
+
+        $saldoAwalLayers = $this->normalizeLayers($layers);
+        $saldoAwalQty = collect($saldoAwalLayers)->sum('qty');
+        $saldoAwalNilai = collect($saldoAwalLayers)->sum('total');
+
+        $rows = [];
+
+        if ($saldoAwalQty > 0) {
+            $rows[] = [
+                'tanggal' => $tglMulai->format('d/m/Y'),
+                'keterangan' => 'Saldo Awal',
+                'pembelian' => null,
+                'hpp_rows' => [],
+                'persediaan_rows' => $saldoAwalLayers,
+            ];
+        }
+
+        $periodEntries = $entries
+            ->filter(fn (KartuStok $entry) =>
+                Carbon::parse($entry->tanggal)->betweenIncluded($tglMulai, $tglAkhir)
+            )
+            ->groupBy(fn (KartuStok $entry) => implode('|', [
+                $entry->tanggal?->format('Y-m-d') ?? '',
+                $entry->source_type ?? 'manual',
+                $entry->source_id ?? $entry->id,
+                $entry->source_line_id ?? $entry->id,
+                $entry->isSaldoAwal() ? 'saldo-awal' : 'mutasi',
+            ]));
+
+        foreach ($periodEntries as $group) {
+            $first = $group->first();
+            $pembelianQty = (int) $group->sum('masuk');
+            $pembelianHarga = $pembelianQty > 0 ? (float) $group->where('masuk', '>', 0)->first()?->harga : 0;
+            $hppRows = [];
+
+            foreach ($group as $entry) {
+                if ((int) $entry->masuk > 0) {
+                    $this->applyEntryToLayers($layers, $entry);
+                }
+
+                if ((int) $entry->keluar > 0) {
+                    $hppRows = array_merge($hppRows, $this->consumeLayers($layers, (int) $entry->keluar, (float) $entry->hpp));
+                }
+            }
+
+            $rows[] = [
+                'tanggal' => $first->tanggal?->format('d/m/Y') ?? '-',
+                'keterangan' => $this->formatKeterangan($first),
+                'pembelian' => $pembelianQty > 0 ? [
+                    'qty' => $pembelianQty,
+                    'harga' => $pembelianHarga,
+                    'total' => $pembelianQty * $pembelianHarga,
+                ] : null,
+                'hpp_rows' => $hppRows,
+                'persediaan_rows' => $this->normalizeLayers($layers),
+            ];
+        }
+
+        $totalPembelian = collect($rows)->sum(fn (array $row) => (float) ($row['pembelian']['total'] ?? 0));
+        $totalHpp = collect($rows)->sum(fn (array $row) => collect($row['hpp_rows'])->sum('total'));
+        $persediaanAkhir = collect($this->normalizeLayers($layers))->sum('total');
+
+        return [
+            'barang' => $barang,
+            'rows' => $rows,
+            'saldo_awal_nilai' => $saldoAwalNilai,
+            'total_pembelian' => $totalPembelian,
+            'total_hpp' => $totalHpp,
+            'persediaan_akhir' => $persediaanAkhir,
+            'validasi' => round($saldoAwalNilai + $totalPembelian - $totalHpp, 2),
+            'valid' => abs(($saldoAwalNilai + $totalPembelian - $totalHpp) - $persediaanAkhir) < 0.01,
+        ];
+    }
+
+    private function applyEntryToLayers(array &$layers, KartuStok $entry): void
+    {
+        if ((int) $entry->masuk > 0) {
+            $layers[] = [
+                'qty' => (int) $entry->masuk,
+                'harga' => (float) $entry->harga,
+            ];
+            return;
+        }
+
+        if ((int) $entry->keluar > 0) {
+            $this->consumeLayers($layers, (int) $entry->keluar, (float) $entry->hpp);
+        }
+    }
+
+    private function consumeLayers(array &$layers, int $qty, float $preferredHarga = 0): array
+    {
+        $remaining = $qty;
+        $hppRows = [];
+
+        foreach ($layers as &$layer) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            if ($layer['qty'] <= 0) {
+                continue;
+            }
+
+            $ambil = min($remaining, $layer['qty']);
+            $harga = $preferredHarga > 0 ? $layer['harga'] : $layer['harga'];
+
+            $hppRows[] = [
+                'qty' => $ambil,
+                'harga' => $harga,
+                'total' => $ambil * $harga,
+            ];
+
+            $layer['qty'] -= $ambil;
+            $remaining -= $ambil;
+        }
+        unset($layer);
+
+        if ($remaining > 0) {
+            $harga = $preferredHarga > 0 ? $preferredHarga : 0;
+            $hppRows[] = [
+                'qty' => $remaining,
+                'harga' => $harga,
+                'total' => $remaining * $harga,
+            ];
+        }
+
+        $layers = array_values(array_filter($layers, fn (array $layer) => $layer['qty'] > 0));
+
+        return $hppRows;
+    }
+
+    private function normalizeLayers(array $layers): array
+    {
+        return collect($layers)
+            ->filter(fn (array $layer) => (int) $layer['qty'] > 0)
+            ->map(fn (array $layer) => [
+                'qty' => (int) $layer['qty'],
+                'harga' => (float) $layer['harga'],
+                'total' => (int) $layer['qty'] * (float) $layer['harga'],
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function formatKeterangan(KartuStok $entry): string
+    {
+        if ($entry->isSaldoAwal()) {
+            return 'Saldo Awal';
+        }
+
+        if ($entry->source_type === 'grn' && $entry->source_id) {
+            $grn = \App\Models\Grn::with('pembelian')->find($entry->source_id);
+            return $grn?->pembelian?->nomor
+                ? 'No. PO ' . $grn->pembelian->nomor
+                : 'GRN ' . ($grn?->nomor_grn ?? $entry->source_id);
+        }
+
+        if ($entry->source_type === 'pembelian' && $entry->source_id) {
+            $pembelian = Pembelian::find($entry->source_id);
+            return 'No. PO ' . ($pembelian?->nomor ?? $entry->source_id);
+        }
+
+        if ($entry->source_type === 'penjualan' && $entry->source_id) {
+            $penjualan = Penjualan::find($entry->source_id);
+            return 'No. Faktur Jual ' . ($penjualan?->no_faktur ?? $entry->source_id);
+        }
+
+        if (filled($entry->keterangan)) {
+            return trim((string) preg_replace('/\s+\(.+\)$/', '', (string) $entry->keterangan));
+        }
+
+        return match ($entry->source_type) {
+            'grn' => 'Penerimaan Barang',
+            'pembelian' => 'Pembelian',
+            'penjualan' => 'Penjualan',
+            default => 'Mutasi Stok',
+        };
     }
 
     private function getEventMasuk(int $barangId, Carbon $tglAkhir): Collection

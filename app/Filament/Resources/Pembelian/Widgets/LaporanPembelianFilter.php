@@ -29,32 +29,4 @@ class LaporanPembelianFilter extends Widget
             ->toArray();
     }
 
-    public function cetakPdf(): void
-    {
-        $params = http_build_query(array_filter([
-            'bulan'     => $this->bulan,
-            'tahun'     => $this->tahun,
-            'vendor_id' => $this->vendor_id,
-            'status'    => $this->status,
-        ]));
-
-        $url = route('laporan-pembelian.pdf') . '?' . $params;
-
-        $this->js("window.open('{$url}', '_blank')");
-    }
-
-    public function unduhPdf(): void
-    {
-        $params = http_build_query(array_filter([
-            'bulan'     => $this->bulan,
-            'tahun'     => $this->tahun,
-            'vendor_id' => $this->vendor_id,
-            'status'    => $this->status,
-            'download'  => '1',
-        ]));
-
-        $url = route('laporan-pembelian.pdf') . '?' . $params;
-
-        $this->js("window.open('{$url}', '_blank')");
-    }
 }

@@ -48,7 +48,7 @@ class ViewPembelian extends ViewRecord
                 ->label('Proses Pembayaran')
                 ->icon('heroicon-o-banknotes')
                 ->color('success')
-                ->visible(fn (): bool => ($record->status === 'pending' || $record->status === 'proses') && empty($record->fakturPembelian))
+                ->visible(fn (): bool => $record->status === 'selesai' && empty($record->fakturPembelian))
                 ->url(fn (): string =>
                     FakturPembelianResource::getUrl('create') . '?pembelian_id=' . $record->id
                 ),

@@ -13,14 +13,7 @@ class PembelianObserver
 
     public function saved(Pembelian $pembelian): void
     {
-        // Hanya sinkronisasi stok dan fitur FIFO jika statusnya adalah diterima secara fisik / lunas.
-        if ($pembelian->status === 'diterima' || $pembelian->status === 'lunas') {
-            $items = $pembelian->details ?? collect();
-            app(\App\Services\KartuStokService::class)->syncPembelian($pembelian, $items);
-        } else {
-            // Jika ditarik kembali/batal, hapus layer stok
-            app(\App\Services\KartuStokService::class)->rollbackPembelian($pembelian->id);
-        }
+        // Stok pembelian diproses dari GRN, bukan dari perubahan status PO.
     }
 
     public function deleted(Pembelian $pembelian): void

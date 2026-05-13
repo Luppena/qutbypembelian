@@ -9,6 +9,7 @@ use App\Filament\Resources\Penjualans\Pages\ViewPenjualan;
 use App\Models\Barang;
 use App\Models\Penjualan;
 use App\Models\Pajak;
+use App\Services\KartuStokService;
 use BackedEnum;
 use UnitEnum; 
 use Filament\Actions;
@@ -170,7 +171,9 @@ public static function form(Schema $schema): Schema
                                 ->reactive()
                                 ->afterStateUpdated(function (Get $get, Set $set, $state) {
                                     $barang = $state ? Barang::find($state) : null;
-                                    $harga  = (float) ($barang?->harga_barang ?? 0);
+                                    $harga  = $barang
+                                        ? app(KartuStokService::class)->getHargaJualTerakhir($barang->id)['harga']
+                                        : 0;
 
                                     $set('harga_satuan', $harga);
 

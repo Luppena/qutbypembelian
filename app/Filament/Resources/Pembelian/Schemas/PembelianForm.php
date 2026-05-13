@@ -184,10 +184,11 @@ class PembelianForm
                     Select::make('status')
     ->label('Status Pembelian')
     ->options([
-        'proses'   => 'Proses',
-        'diterima' => 'Diterima',
+        'menunggu' => 'Menunggu',
+        'partial'  => 'Partial',
+        'selesai'  => 'Selesai',
     ])
-    ->default('proses')
+    ->default('menunggu')
     ->disabled()     // ⬅️ tidak bisa diubah saat create
     ->dehydrated()   // ⬅️ tetap disimpan ke DB
     ->required(),

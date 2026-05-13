@@ -48,18 +48,6 @@
                 </select>
             </div>
 
-            {{-- Tombol Cetak PDF --}}
-            <div>
-                <button wire:click="cetakPdf" type="button"
-                    style="display:inline-flex; align-items:center; gap:6px; padding:8px 16px; background-color:#dc2626; color:#fff; font-size:14px; font-weight:600; border-radius:8px; border:none; cursor:pointer; white-space:nowrap;"
-                    onmouseover="this.style.backgroundColor='#b91c1c'"
-                    onmouseout="this.style.backgroundColor='#dc2626'">
-                    <svg style="width:16px;height:16px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                    </svg>
-                    Cetak PDF
-                </button>
-            </div>
         </div>
 
     </div>

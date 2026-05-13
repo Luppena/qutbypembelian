@@ -33,7 +33,7 @@ trait HasRoleAccess
             ? $user->role->value
             : (string) $user->role;
 
-        if ($userRole === 'admin' || $userRole === UserRole::Admin->value) {
+        if (in_array($userRole, ['admin', 'super_admin'], true)) {
             return true;
         }
 

@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dasbor Purchasing - CV Qutby Creativindo</title>
+    <style>
+        :root {
+            --color-bg-primary: #F9FAFB;
+            --color-bg-secondary: #FFFFFF;
+            --color-text-primary: #111827;
+            --color-text-secondary: #6B7280;
+            --color-text-tertiary: #9CA3AF;
+            --color-border: #E5E7EB;
+            
+            --color-primary: #185FA5;
+            --color-primary-light: #EBF4FF;
+            --color-danger: #EF4444;
+            --color-danger-light: #FEF2F2;
+            --color-warning: #F59E0B;
+            --color-warning-light: #FFFBEB;
+            --color-success: #10B981;
+            --color-success-light: #ECFDF5;
+            --color-info: #3B82F6;
+            --color-info-light: #EFF6FF;
+            --color-draft: #F3F4F6;
+            --color-draft-text: #374151;
+            
+            --border-radius-lg: 12px;
+            --border-radius-md: 8px;
+            --border-radius-sm: 4px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            font-size: 13px;
+            line-height: 1.5;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Layout */
+        .sidebar {
+            width: 250px;
+            background-color: var(--color-bg-secondary);
+            border-right: 0.5px solid var(--color-border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 20px 16px;
+            border-bottom: 0.5px solid var(--color-border);
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--color-primary);
+        }
+
+        .sidebar-nav {
+            padding: 16px 8px;
+            flex-grow: 1;
+        }
+
+        .nav-group {
+            margin-bottom: 24px;
+        }
+
+        .nav-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--color-text-tertiary);
+            font-weight: 500;
+            padding: 0 12px;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            border-radius: var(--border-radius-md);
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            cursor: pointer;
+            margin-bottom: 2px;
+            font-weight: 400;
+        }
+
+        .nav-item:hover {
+            background-color: var(--color-bg-primary);
+            color: var(--color-text-primary);
+        }
+
+        .nav-item.active {
+            background-color: var(--color-primary-light);
+            color: var(--color-primary);
+            font-weight: 500;
+        }
+
+        .nav-item-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-badge {
+            background-color: var(--color-danger);
+            color: white;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            height: 60px;
+            background-color: var(--color-bg-secondary);
+            border-bottom: 0.5px solid var(--color-border);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            font-weight: 500;
+            font-size: 16px;
+        }
+
+        .content-area {
+            flex-grow: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Dashboard Specific */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background-color: var(--color-bg-secondary);
+            border: 0.5px solid var(--color-border);
+            border-radius: var(--border-radius-lg);
+            padding: 20px;
+        }
+
+        .stat-title {
+            color: var(--color-text-secondary);
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--color-text-primary);
+            margin-bottom: 4px;
+        }
+
+        .stat-sub {
+            font-size: 11px;
+            color: var(--color-primary);
+        }
+
+        .stat-sub.neutral {
+            color: var(--color-text-secondary);
+        }
+        
+        .stat-sub.warning {
+            color: var(--color-warning);
+        }
+        
+        .stat-sub.success {
+            color: var(--color-success);
+        }
+
+        .two-columns {
+            display: grid;
+            grid-template-columns: 2fr 1.5fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background-color: var(--color-bg-secondary);
+            border: 0.5px solid var(--color-border);
+            border-radius: var(--border-radius-lg);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 0.5px solid var(--color-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-weight: 500;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-action {
+            color: var(--color-primary);
+            font-size: 12px;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .card-body {
+            padding: 0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 12px 20px;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--color-text-tertiary);
+            font-weight: 500;
+            border-bottom: 0.5px solid var(--color-border);
+            background-color: var(--color-bg-primary);
+        }
+
+        td {
+            padding: 14px 20px;
+            border-bottom: 0.5px solid var(--color-border);
+            color: var(--color-text-primary);
+            font-size: 13px;
+        }
+        
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .text-link {
+            color: var(--color-primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .badge.draft {
+            background-color: var(--color-draft);
+            color: var(--color-draft-text);
+        }
+
+        .badge.dikirim {
+            background-color: var(--color-info-light);
+            color: var(--color-info);
+        }
+
+        .badge.sebagian {
+            background-color: var(--color-warning-light);
+            color: var(--color-warning);
+        }
+
+        .badge.diterima, .badge.dikonfirmasi {
+            background-color: var(--color-success-light);
+            color: var(--color-success);
+        }
+        
+        .badge.selisih {
+            background-color: var(--color-danger-light);
+            color: var(--color-danger);
+        }
+
+        /* Notifications */
+        .notification-list {
+            padding: 0;
+        }
+
+        .notification-item {
+            display: flex;
+            gap: 12px;
+            padding: 16px 20px;
+            border-bottom: 0.5px solid var(--color-border);
+        }
+
+        .notification-item:last-child {
+            border-bottom: none;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 6px;
+            flex-shrink: 0;
+        }
+
+        .dot.red { background-color: var(--color-danger); }
+        .dot.orange { background-color: var(--color-warning); }
+        .dot.blue { background-color: var(--color-info); }
+        .dot.green { background-color: var(--color-success); }
+
+        .notif-content {
+            flex-grow: 1;
+        }
+
+        .notif-text {
+            color: var(--color-text-primary);
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .notif-subtext {
+            color: var(--color-text-secondary);
+            font-size: 12px;
+        }
+
+        /* Placeholder Page */
+        .placeholder-page {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--color-text-tertiary);
+        }
+        
+        .placeholder-page h2 {
+            color: var(--color-text-secondary);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        /* Icons placeholder */
+        .icon {
+            width: 16px;
+            height: 16px;
+            display: inline-block;
+            vertical-align: middle;
+            fill: currentColor;
+        }
+        
+        /* Buttons */
+        .btn-primary {
+            background-color: var(--color-primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: var(--border-radius-md);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            CV QUTBY CREATIVINDO
+        </div>
+        <div class="sidebar-nav">
+            <div class="nav-item active" onclick="openTab('dasbor', this)">
+                <div class="nav-item-content">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                    Dasbor
+                </div>
+            </div>
+
+            <div class="nav-group">
+                <div class="nav-title">Transaksi Pembelian</div>
+                <div class="nav-item" onclick="openTab('pesanan-pembelian', this)">
+                    <div class="nav-item-content">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                        Pesanan Pembelian
+                    </div>
+                    <span class="nav-badge">3</span>
+                </div>
+                <div class="nav-item" onclick="openTab('barang-masuk', this)">
+                    <div class="nav-item-content">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                        Barang Masuk
+                    </div>
+                </div>
+                <div class="nav-item" onclick="openTab('verifikasi-grn', this)">
+                    <div class="nav-item-content">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><polyline points="9 15 11 17 15 13"></polyline></svg>
+                        Verifikasi GRN
+                    </div>
+                    <span class="nav-badge">2</span>
+                </div>
+                <div class="nav-item" onclick="openTab('retur', this)">
+                    <div class="nav-item-content">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+                        Retur ke Vendor
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-group">
+                <div class="nav-title">Master Data</div>
+                <div class="nav-item" onclick="openTab('vendor', this)">
+                    <div class="nav-item-content">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+                        Vendor
+                    </div>
+                </div>
+                <div class="nav-item" onclick="openTab('barang', this)">
+                    <div class="nav-item-content">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                        Barang
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-group">
+                <div class="nav-title">Laporan</div>
+                <div class="nav-item" onclick="openTab('rekap', this)">
+                    <div class="nav-item-content">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                        Rekap Pembelian
+                    </div>
+                </div>
+                <div class="nav-item" onclick="openTab('kartu-stok', this)">
+                    <div class="nav-item-content">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                        Kartu Stok FIFO
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="header" id="page-header">
+            Dasbor
+        </div>
+
+        <div class="content-area">
+            
+            <!-- Dashboard Tab -->
+            <div id="dasbor" class="tab-content active">
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-title">PO Bulan Ini</div>
+                        <div class="stat-value">8 PO</div>
+                        <div class="stat-sub">3 draft · 5 aktif</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title">Nilai Pembelian</div>
+                        <div class="stat-value">Rp 43 jt</div>
+                        <div class="stat-sub neutral">Mei 2026</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title">Menunggu GRN</div>
+                        <div class="stat-value">2 PO</div>
+                        <div class="stat-sub warning">Perlu verifikasi</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title">Barang Masuk Hari Ini</div>
+                        <div class="stat-value">3 kiriman</div>
+                        <div class="stat-sub success">Sudah diterima</div>
+                    </div>
+                </div>
+
+                <!-- Two Columns -->
+                <div class="two-columns">
+                    <!-- PO Terbaru -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                PO terbaru
+                            </div>
+                            <a href="#" class="card-action" onclick="openTab('pesanan-pembelian', document.querySelectorAll('.nav-item')[1])">Lihat semua</a>
+                        </div>
+                        <div class="card-body">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>No. PO</th>
+                                        <th>Vendor</th>
+                                        <th>Total</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><a href="#" class="text-link">PO-0008</a></td>
+                                        <td>Sumber Agung</td>
+                                        <td>Rp 8,2 jt</td>
+                                        <td><span class="badge draft">Draft</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><a href="#" class="text-link">PO-0007</a></td>
+                                        <td>Maju Jaya</td>
+                                        <td>Rp 12,4 jt</td>
+                                        <td><span class="badge dikirim">Dikirim</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><a href="#" class="text-link">PO-0006</a></td>
+                                        <td>Karya Baru</td>
+                                        <td>Rp 3,1 jt</td>
+                                        <td><span class="badge sebagian">Sebagian</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><a href="#" class="text-link">PO-0005</a></td>
+                                        <td>Indo Sejahtera</td>
+                                        <td>Rp 5,6 jt</td>
+                                        <td><span class="badge diterima">Diterima</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Notifikasi -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                                Notifikasi
+                            </div>
+                        </div>
+                        <div class="card-body notification-list">
+                            <div class="notification-item">
+                                <div class="dot red"></div>
+                                <div class="notif-content">
+                                    <div class="notif-text">GRN-0031 belum dikonfirmasi 4 jam</div>
+                                    <div class="notif-subtext">Selisih 5 kaleng tinta · PO-0006</div>
+                                </div>
+                            </div>
+                            <div class="notification-item">
+                                <div class="dot orange"></div>
+                                <div class="notif-content">
+                                    <div class="notif-text">PO-0008 masih Draft — belum dikirim ke vendor</div>
+                                    <div class="notif-subtext">Rp 8.250.000 · Sumber Agung</div>
+                                </div>
+                            </div>
+                            <div class="notification-item">
+                                <div class="dot blue"></div>
+                                <div class="notif-content">
+                                    <div class="notif-text">PO-0007 dalam pengiriman — est. tiba hari ini</div>
+                                    <div class="notif-subtext">Maju Jaya · Siapkan area penerimaan</div>
+                                </div>
+                            </div>
+                            <div class="notification-item">
+                                <div class="dot green"></div>
+                                <div class="notif-content">
+                                    <div class="notif-text">3 item stok sudah diupdate otomatis dari GRN</div>
+                                    <div class="notif-subtext">Spidol, toner, amplop C5</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Barang Masuk Hari Ini -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                            Barang masuk hari ini
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>No. PO</th>
+                                    <th>Vendor</th>
+                                    <th>Barang</th>
+                                    <th>Qty PO</th>
+                                    <th>Qty Terima</th>
+                                    <th>Status GRN</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><a href="#" class="text-link">PO-0005</a></td>
+                                    <td>Indo Sejahtera</td>
+                                    <td>Spidol Boardmarker</td>
+                                    <td>144 pcs</td>
+                                    <td>144 pcs</td>
+                                    <td><span class="badge dikonfirmasi">Dikonfirmasi</span></td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#" class="text-link">PO-0005</a></td>
+                                    <td>Indo Sejahtera</td>
+                                    <td>Staples No.10</td>
+                                    <td>50 pak</td>
+                                    <td>50 pak</td>
+                                    <td><span class="badge dikonfirmasi">Dikonfirmasi</span></td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#" class="text-link">PO-0006</a></td>
+                                    <td>Karya Baru</td>
+                                    <td>Tinta Offset</td>
+                                    <td>60 kaleng</td>
+                                    <td>55 kaleng</td>
+                                    <td><span class="badge selisih">Selisih</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pesanan Pembelian Tab -->
+            <div id="pesanan-pembelian" class="tab-content">
+                <div class="card" style="height: 100%; display: flex; flex-direction: column;">
+                    <div class="card-header">
+                        <div class="card-title">Daftar Pesanan Pembelian (PO)</div>
+                        <button class="btn-primary">+ Buat PO Baru</button>
+                    </div>
+                    <div class="placeholder-page" style="flex-grow: 1; padding: 40px;">
+                        <h2>Halaman Pesanan Pembelian</h2>
+                        <p>Tabel daftar PO lengkap dan form pembuatan PO baru akan ditampilkan di sini.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Barang Masuk Tab -->
+            <div id="barang-masuk" class="tab-content">
+                <div class="card" style="height: 100%;">
+                    <div class="placeholder-page">
+                        <h2>Halaman Barang Masuk</h2>
+                        <p>Form penerimaan barang referensi PO akan ditampilkan di sini.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Verifikasi GRN Tab -->
+            <div id="verifikasi-grn" class="tab-content">
+                <div class="card" style="height: 100%;">
+                    <div class="placeholder-page">
+                        <h2>Halaman Verifikasi GRN</h2>
+                        <p>Tabel GRN pending verifikasi dan detail selisih qty akan ditampilkan di sini.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Retur ke Vendor Tab -->
+            <div id="retur" class="tab-content">
+                <div class="card" style="height: 100%;">
+                    <div class="placeholder-page">
+                        <h2>Halaman Retur ke Vendor</h2>
+                        <p>Form retur barang ke vendor akan ditampilkan di sini.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Master Vendor Tab -->
+            <div id="vendor" class="tab-content">
+                <div class="card" style="height: 100%;">
+                    <div class="placeholder-page">
+                        <h2>Master Data Vendor</h2>
+                        <p>Kelola data supplier dan vendor di sini.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Master Barang Tab -->
+            <div id="barang" class="tab-content">
+                <div class="card" style="height: 100%;">
+                    <div class="placeholder-page">
+                        <h2>Master Data Barang</h2>
+                        <p>Kelola data item, harga, dan satuan barang di sini.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rekap Pembelian Tab -->
+            <div id="rekap" class="tab-content">
+                <div class="card" style="height: 100%;">
+                    <div class="placeholder-page">
+                        <h2>Laporan Rekap Pembelian</h2>
+                        <p>Laporan transaksi pembelian per vendor dan periode.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kartu Stok Tab -->
+            <div id="kartu-stok" class="tab-content">
+                <div class="card" style="height: 100%;">
+                    <div class="placeholder-page">
+                        <h2>Laporan Kartu Stok FIFO</h2>
+                        <p>Laporan pergerakan masuk dan keluar barang secara FIFO.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        function openTab(tabId, el) {
+            // Hide all tabs
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Remove active class from all nav items
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => item.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tabId).classList.add('active');
+            
+            // Add active class to clicked nav item
+            el.classList.add('active');
+            
+            // Update Header Title
+            const titles = {
+                'dasbor': 'Dasbor',
+                'pesanan-pembelian': 'Pesanan Pembelian',
+                'barang-masuk': 'Barang Masuk',
+                'verifikasi-grn': 'Verifikasi GRN',
+                'retur': 'Retur ke Vendor',
+                'vendor': 'Master Data Vendor',
+                'barang': 'Master Data Barang',
+                'rekap': 'Rekap Pembelian',
+                'kartu-stok': 'Kartu Stok FIFO'
+            };
+            
+            document.getElementById('page-header').innerText = titles[tabId];
+        }
+    </script>
+</body>
+</html>

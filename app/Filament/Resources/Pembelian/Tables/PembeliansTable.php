@@ -35,13 +35,6 @@ class PembeliansTable
                     ->money('IDR', locale: 'id')
                     ->sortable(),
 
-                TextColumn::make('status')
-                    ->label('Status')
-                    ->badge()
-                    ->colors([
-                        'warning' => 'proses',
-                        'success' => 'diterima',
-                    ]),
             ])
             ->actions([
                 ViewAction::make()->label('Lihat'),

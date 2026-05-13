@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Penjualans\Schemas;
 
 use App\Models\Barang;
 use App\Models\Pajak;
+use App\Services\KartuStokService;
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Repeater;
 use Filament\Schemas\Components\Select;
@@ -65,7 +66,9 @@ class PenjualanForm
                         ->reactive()
                         ->afterStateUpdated(function (Get $get, Set $set, ?int $state) {
                             $barang = $state ? Barang::find($state) : null;
-                            $harga  = $barang?->harga_jual ?? 0;
+                            $harga  = $barang
+                                ? app(KartuStokService::class)->getHargaJualTerakhir($barang->id)['harga']
+                                : 0;
 
                             $set('harga_satuan', $harga);
 

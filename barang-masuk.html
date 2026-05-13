@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barang Masuk — CV Qutby Creativindo</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    <style>
+        :root {
+            --color-background-primary: #F5F6F8;
+            --color-background-secondary: #FFFFFF;
+            --color-text-primary: #111827;
+            --color-text-secondary: #4B5563;
+            --color-text-tertiary: #9CA3AF;
+            --color-border: #E5E7EB;
+            --color-border-secondary: #D1D5DB;
+            --border-radius-lg: 10px;
+            --border-radius-md: 6px;
+            --border-radius-sm: 4px;
+            --color-primary: #185FA5;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --color-background-primary: #111827;
+                --color-background-secondary: #1F2937;
+                --color-text-primary: #F9FAFB;
+                --color-text-secondary: #D1D5DB;
+                --color-text-tertiary: #6B7280;
+                --color-border: #374151;
+                --color-border-secondary: #4B5563;
+            }
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--color-background-primary);
+            color: var(--color-text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 13px;
+            line-height: 1.5;
+            padding: 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        /* ── Section spacing ── */
+        .section { margin-bottom: 14px; }
+
+        /* ── Header ── */
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+        .page-title {
+            font-size: 18px;
+            font-weight: 500;
+            color: var(--color-text-primary);
+        }
+        .header-actions { display: flex; gap: 8px; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: var(--border-radius-md);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            white-space: nowrap;
+        }
+        .btn-ghost {
+            background: transparent;
+            border: 0.5px solid var(--color-border-secondary);
+            color: var(--color-text-secondary);
+        }
+        .btn-ghost:hover { background: var(--color-background-primary); }
+        .btn-primary {
+            background: #185FA5;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #155088; opacity: .92; }
+
+        /* ── Stat Cards ── */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        .stat-card {
+            background: var(--color-background-secondary);
+            border-radius: var(--border-radius-md);
+            padding: 12px 14px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            margin-bottom: 4px;
+        }
+        .stat-value {
+            font-size: 22px;
+            font-weight: 500;
+            line-height: 1.2;
+            margin-bottom: 3px;
+        }
+        .stat-sub {
+            font-size: 11px;
+            font-weight: 400;
+        }
+
+        /* ── Card ── */
+        .card {
+            background: var(--color-background-secondary);
+            border: 0.5px solid var(--color-border);
+            border-radius: var(--border-radius-lg);
+            padding: 16px 18px;
+        }
+        .card-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-text-primary);
+            margin-bottom: 14px;
+        }
+
+        /* ── Form Grid ── */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .form-field { display: flex; flex-direction: column; gap: 4px; }
+        .form-field.full { grid-column: 1 / -1; }
+
+        label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+        }
+        input[type="text"],
+        input[type="date"],
+        input[type="number"],
+        select,
+        textarea {
+            border: 0.5px solid var(--color-border-secondary);
+            border-radius: var(--border-radius-md);
+            font-size: 13px;
+            padding: 7px 10px;
+            background: var(--color-background-secondary);
+            color: var(--color-text-primary);
+            width: 100%;
+            font-family: inherit;
+            outline: none;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: #185FA5;
+        }
+        textarea { resize: vertical; min-height: 60px; }
+        ::placeholder { color: var(--color-text-tertiary); }
+
+        /* ── Divider ── */
+        hr {
+            border: none;
+            border-top: 0.5px solid var(--color-border);
+            margin: 14px 0;
+        }
+        .section-subtitle {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            margin-bottom: 10px;
+        }
+
+        /* ── Detail Table ── */
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th {
+            text-align: left;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            color: var(--color-text-tertiary);
+            padding: 8px 8px;
+            border-bottom: 0.5px solid var(--color-border);
+            letter-spacing: 0.4px;
+        }
+        td {
+            padding: 10px 8px;
+            border-bottom: 0.5px solid var(--color-border);
+            vertical-align: middle;
+            font-size: 13px;
+        }
+        tr:last-child td { border-bottom: none; }
+
+        /* col widths */
+        .col-barang  { width: 30%; }
+        .col-satuan  { width: 12%; }
+        .col-qtypo   { width: 13%; }
+        .col-qtytrm  { width: 16%; }
+        .col-harga   { width: 15%; }
+        .col-selisih { width: 14%; }
+
+        .item-name { font-weight: 500; display: block; }
+        .item-code { font-size: 11px; color: var(--color-text-tertiary); }
+
+        input.qty-input {
+            width: 72px;
+            padding: 5px 8px;
+            text-align: center;
+        }
+        input.qty-input.error {
+            border-color: #A32D2D;
+            background: #FCEBEB;
+            color: #A32D2D;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .badge-ok    { background: #EAF3DE; color: #27500A; }
+        .badge-error { background: #FCEBEB; color: #791F1F; }
+        .badge-warn  { background: #FAEEDA; color: #633806; }
+        .badge-info  { background: #EBF4FF; color: #185FA5; }
+
+        .selisih-ok   { color: #27500A; }
+        .selisih-error {
+            color: #A32D2D;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* ── Form actions ── */
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        /* ── Filter bar ── */
+        .filter-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .filter-bar input,
+        .filter-bar select { width: 100%; }
+
+        /* ── History table ── */
+        .col-grn    { width: 16%; }
+        .col-po     { width: 15%; }
+        .col-vendor { width: 22%; }
+        .col-item   { width: 25%; }
+        .col-waktu  { width: 12%; }
+        .col-status { width: 10%; }
+
+        .text-link {
+            color: #185FA5;
+            text-decoration: none;
+            font-weight: 400;
+        }
+        .text-link:hover { text-decoration: underline; }
+        .item-main  { font-weight: 500; }
+        .item-sub   { font-size: 11px; color: var(--color-text-tertiary); }
+        .time-text  { color: var(--color-text-tertiary); font-size: 12px; }
+
+        @media (max-width: 720px) {
+            .stat-grid { grid-template-columns: 1fr 1fr; }
+            .form-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ═══════════════════════════════════
+         BAGIAN 1 — Header
+    ═══════════════════════════════════ -->
+    <div class="page-header section">
+        <span class="page-title">Barang Masuk</span>
+        <div class="header-actions">
+            <button class="btn btn-ghost">
+                <i class="ti ti-download" style="font-size:15px;"></i>
+                Export
+            </button>
+            <button class="btn btn-primary">
+                <i class="ti ti-plus" style="font-size:15px;"></i>
+                Catat Penerimaan
+            </button>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════
+         BAGIAN 2 — Stat Cards
+    ═══════════════════════════════════ -->
+    <div class="stat-grid section">
+        <div class="stat-card">
+            <div class="stat-label">Kiriman hari ini</div>
+            <div class="stat-value">3</div>
+            <div class="stat-sub" style="color:#185FA5;">Sudah diterima</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Menunggu proses</div>
+            <div class="stat-value">2</div>
+            <div class="stat-sub" style="color:#854F0B;">Dari PO aktif</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Ada selisih qty</div>
+            <div class="stat-value" style="color:#A32D2D;">1</div>
+            <div class="stat-sub" style="color:#A32D2D;">Perlu konfirmasi</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total unit masuk</div>
+            <div class="stat-value">349</div>
+            <div class="stat-sub" style="color: var(--color-text-tertiary);">Hari ini</div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════
+         BAGIAN 3 — Form Penerimaan
+    ═══════════════════════════════════ -->
+    <div class="card section">
+        <div class="card-title">
+            <i class="ti ti-clipboard-list" style="font-size:14px; vertical-align:-2px; margin-right:5px;"></i>
+            Form penerimaan barang baru
+        </div>
+
+        <div class="form-grid">
+            <div class="form-field">
+                <label>No. PO referensi</label>
+                <select>
+                    <option value="PO-0007" selected>PO-0007 — Maju Jaya</option>
+                    <option value="PO-0006">PO-0006 — Karya Baru</option>
+                    <option value="PO-0008">PO-0008 — Sumber Agung</option>
+                </select>
+            </div>
+            <div class="form-field">
+                <label>Tanggal terima</label>
+                <input type="date" value="2026-05-06">
+            </div>
+            <div class="form-field">
+                <label>No. surat jalan vendor</label>
+                <input type="text" placeholder="SJ/VENDOR/2026/...">
+            </div>
+            <div class="form-field">
+                <label>Diterima oleh</label>
+                <input type="text" placeholder="Nama petugas gudang">
+            </div>
+            <div class="form-field full">
+                <label>Catatan kondisi barang</label>
+                <textarea placeholder="Mis: 1 karton penyok, isi aman — atau kosongkan jika kondisi baik"></textarea>
+            </div>
+        </div>
+
+        <hr>
+
+        <div class="section-subtitle">Detail item yang diterima</div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-barang">Barang</th>
+                    <th class="col-satuan">Satuan</th>
+                    <th class="col-qtypo">Qty PO</th>
+                    <th class="col-qtytrm">Qty Diterima</th>
+                    <th class="col-harga">Harga/Unit</th>
+                    <th class="col-selisih">Selisih</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Baris 1: Sesuai -->
+                <tr>
+                    <td>
+                        <span class="item-name">Spidol Boardmarker</span>
+                        <span class="item-code">SPD-009</span>
+                    </td>
+                    <td>Pcs</td>
+                    <td>144</td>
+                    <td><input type="number" class="qty-input" value="144"></td>
+                    <td style="color: var(--color-text-secondary);">Rp 18.500</td>
+                    <td><span class="badge badge-ok"><i class="ti ti-check" style="font-size:10px;"></i> Sesuai</span></td>
+                </tr>
+                <!-- Baris 2: Sesuai -->
+                <tr>
+                    <td>
+                        <span class="item-name">Staples No.10</span>
+                        <span class="item-code">STL-007</span>
+                    </td>
+                    <td>Pak</td>
+                    <td>50</td>
+                    <td><input type="number" class="qty-input" value="50"></td>
+                    <td style="color: var(--color-text-secondary);">Rp 12.000</td>
+                    <td><span class="badge badge-ok"><i class="ti ti-check" style="font-size:10px;"></i> Sesuai</span></td>
+                </tr>
+                <!-- Baris 3: Selisih -->
+                <tr>
+                    <td>
+                        <span class="item-name">Tinta Offset Hitam</span>
+                        <span class="item-code">TNT-006</span>
+                    </td>
+                    <td>Kaleng</td>
+                    <td>60</td>
+                    <td><input type="number" class="qty-input error" value="55"></td>
+                    <td style="color: var(--color-text-secondary);">Rp 145.000</td>
+                    <td>
+                        <span class="selisih-error">
+                            <i class="ti ti-alert-triangle" style="font-size:12px;"></i>
+                            &minus;5 kaleng
+                        </span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="form-actions">
+            <button class="btn btn-ghost">Batal</button>
+            <button class="btn btn-ghost">Simpan draft</button>
+            <button class="btn btn-ghost">
+                <i class="ti ti-clipboard-list" style="font-size:14px;"></i>
+                Simpan &amp; buat GRN
+            </button>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════
+         BAGIAN 4 — Riwayat Barang Masuk
+    ═══════════════════════════════════ -->
+    <div class="card section">
+        <div class="card-title">Riwayat barang masuk hari ini</div>
+
+        <div class="filter-bar">
+            <input type="text" placeholder="Cari no. GRN / vendor...">
+            <select>
+                <option>Semua status</option>
+                <option>Dikonfirmasi</option>
+                <option>Ada selisih</option>
+                <option>Menunggu verifikasi</option>
+            </select>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-grn">No. GRN</th>
+                    <th class="col-po">No. PO</th>
+                    <th class="col-vendor">Vendor</th>
+                    <th class="col-item">Item</th>
+                    <th class="col-waktu">Waktu</th>
+                    <th class="col-status">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Baris 1 -->
+                <tr>
+                    <td><a href="#" class="text-link">GRN-0033</a></td>
+                    <td><a href="#" class="text-link">PO-0005</a></td>
+                    <td style="color: var(--color-text-secondary);">Indo Sejahtera</td>
+                    <td>
+                        <span class="item-main">Spidol + Staples</span>
+                        <span class="item-sub">194 unit</span>
+                    </td>
+                    <td class="time-text">09:20</td>
+                    <td><span class="badge badge-ok">Dikonfirmasi</span></td>
+                </tr>
+                <!-- Baris 2 -->
+                <tr>
+                    <td><a href="#" class="text-link">GRN-0032</a></td>
+                    <td><a href="#" class="text-link">PO-0006</a></td>
+                    <td style="color: var(--color-text-secondary);">Karya Baru</td>
+                    <td>
+                        <span class="item-main">Tinta Offset</span>
+                        <span class="item-sub">55 / 60 kaleng</span>
+                    </td>
+                    <td class="time-text">08:45</td>
+                    <td><span class="badge badge-error">Ada selisih</span></td>
+                </tr>
+                <!-- Baris 3 -->
+                <tr>
+                    <td><a href="#" class="text-link">GRN-0031</a></td>
+                    <td><a href="#" class="text-link">PO-0006</a></td>
+                    <td style="color: var(--color-text-secondary);">Karya Baru</td>
+                    <td>
+                        <span class="item-main">Tinta Offset Merah</span>
+                        <span class="item-sub">100 kaleng</span>
+                    </td>
+                    <td class="time-text">07:30</td>
+                    <td><span class="badge badge-warn">Menunggu verif.</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+</body>
+</html>

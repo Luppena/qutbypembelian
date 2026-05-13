@@ -1,6 +1,8 @@
 @php
     $user = auth()->user();
     $name = $user ? $user->name : 'Administrator';
+    $panelId = \Filament\Facades\Filament::getCurrentPanel()?->getId() ?? 'admin';
+    $logoutRoute = "filament.{$panelId}.auth.logout";
     
     // Attempt to get a role name or default to Administrator
     $role = 'Administrator';
@@ -35,7 +37,7 @@
     </div>
 
     <!-- Logout Button -->
-    <form method="POST" action="{{ filter_var(route('filament.admin.auth.logout'), FILTER_SANITIZE_URL) }}">
+    <form method="POST" action="{{ filter_var(route($logoutRoute), FILTER_SANITIZE_URL) }}">
         @csrf
         <button type="submit" class="w-full flex items-center justify-center gap-3 p-3.5 text-[16px] font-bold rounded-[18px] text-[#ef4444] bg-[#fff5f5] dark:bg-[#451010] border border-transparent transition-all duration-300 hover:bg-[#ffebeb] dark:hover:bg-[#7f1d1d]">
             <span>Keluar</span>

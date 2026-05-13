@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Jurnals\Pages;
 use App\Filament\Traits\HasBackButtonHeading;
 
 use App\Filament\Resources\Jurnals\JurnalResource;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Notifications\Notification;
 use Illuminate\Validation\ValidationException;
@@ -14,6 +15,24 @@ class CreateJurnal extends CreateRecord
     use HasBackButtonHeading;
 
     protected static string $resource = JurnalResource::class;
+
+    protected function getCreateFormAction(): Action
+    {
+        return parent::getCreateFormAction()
+            ->label('Simpan');
+    }
+
+    protected function getCreateAnotherFormAction(): Action
+    {
+        return parent::getCreateAnotherFormAction()
+            ->hidden();
+    }
+
+    protected function getCancelFormAction(): Action
+    {
+        return parent::getCancelFormAction()
+            ->label('Batal');
+    }
 
     protected function afterValidation(): void
     {

@@ -22,7 +22,6 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Actions;
 use Filament\Support\Icons\Heroicon;
 use Filament\Actions\ViewAction;
 use Filament\Actions\EditAction;
@@ -33,7 +32,7 @@ class PembelianResource extends Resource
 {
     use HasRoleAccess;
 
-    protected static array $allowedRoles = ['finance'];
+    protected static array $allowedRoles = ['admin', 'operasional'];
     protected static ?string $model = Pembelian::class;
 
     protected static BackedEnum|string|null $navigationIcon = Heroicon::OutlinedShoppingCart;
@@ -61,16 +60,13 @@ class PembelianResource extends Resource
                     ->columns(3)
                     ->schema([
                         DatePicker::make('tanggal')
+                            ->label('Tanggal PO')
                             ->required()
                             ->default(now()),
 
                         TextInput::make('nomor')
-                            ->label('Nomor Pembelian')
-                            ->default(function () {
-                                $last = Pembelian::latest('id')->first();
-                                $lastNumber = $last ? (int) substr($last->nomor, -4) : 0;
-                                return 'PB-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
-                            })
+                            ->label('Nomor PO')
+                            ->default(fn () => Pembelian::generateNomorPembelian())
                             ->disabled()
                             ->dehydrated()
                             ->required(),
@@ -82,15 +78,14 @@ class PembelianResource extends Resource
                             ->preload()
                             ->required()
                             ->live()
-                            ->afterStateUpdated(function (Get $get, Set $set, $state) {
-                                if (! $state) {
-                                    $set('diskon', 0);
-                                    return;
-                                }
-
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 $vendor = Vendor::find($state);
-                                $set('diskon', (float) ($vendor->diskon_persen ?? 0));
+                                $diskon = $vendor?->diskon_persen ?? 0;
 
+                                // Isi diskon otomatis dari vendor
+                                $set('diskon', $diskon);
+
+                                // Hitung ulang total
                                 self::hitungTotal($get, $set);
                             }),
                     ]),
@@ -119,9 +114,7 @@ class PembelianResource extends Resource
 
                                         $set('satuan', $barang->satuan);
                                         $set('harga', $harga);
-                                        $set('subtotal', $qty * $harga);
-
-                                        self::hitungTotal($get, $set);
+                                        self::hitungSubtotal($get, $set);
                                     }),
 
                                 TextInput::make('qty')
@@ -130,34 +123,22 @@ class PembelianResource extends Resource
                                     ->default(1)
                                     ->required()
                                     ->live()
-                                    ->afterStateUpdated(function (Get $get, Set $set, $state) {
-                                        $harga = (float) ($get('harga') ?? 0);
-                                        $set('subtotal', ((int) $state) * $harga);
+                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::hitungSubtotal($get, $set)),
 
-                                        self::hitungTotal($get, $set);
-                                    }),
-
-                                Select::make('satuan')
+                                TextInput::make('satuan')
                                     ->label('Satuan')
-                                    ->options([
-                                        'pcs'   => 'pcs',
-                                        'set'   => 'set',
-                                        'lusin' => 'lusin',
-                                    ])
+                                    ->disabled()
+                                    ->dehydrated()
                                     ->required(),
 
+
                                 TextInput::make('harga')
-                                    ->label('Harga')
+                                    ->label('Harga Satuan')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->required()
                                     ->live()
-                                    ->afterStateUpdated(function (Get $get, Set $set, $state) {
-                                        $qty = (int) ($get('qty') ?? 1);
-                                        $set('subtotal', $qty * (float) $state);
-
-                                        self::hitungTotal($get, $set);
-                                    }),
+                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::hitungSubtotal($get, $set)),
 
                                 TextInput::make('subtotal')
                                     ->label('Subtotal')
@@ -184,8 +165,8 @@ class PembelianResource extends Resource
                             ->numeric()
                             ->default(0)
                             ->disabled()
-                            ->live()
-                            ->dehydrated(),
+                            ->dehydrated()
+                            ->live(),
 
                         Checkbox::make('ppn')
                             ->label('PPN 11%')
@@ -202,43 +183,91 @@ class PembelianResource extends Resource
             ]);
     }
 
+    /**
+     * Hitung ulang Total, Diskon, PPN, dan Total Akhir.
+     * $prefix = '' jika dipanggil dari form root (vendor, ppn checkbox)
+     * $prefix = '../../' jika dipanggil dari dalam repeater item
+     */
+    protected static function recalculate(Get $get, Set $set, string $prefix = ''): void
+    {
+        // 1. Total = jumlah semua subtotal baris
+        $details = $get($prefix . 'details') ?? [];
+        $total = 0;
+
+        foreach ($details as $item) {
+            $qty   = (float) ($item['qty'] ?? 0);
+            $harga = (float) ($item['harga'] ?? 0);
+            $total += $qty * $harga;
+        }
+
+        // 2. Diskon (Rp) = Total × (Diskon % / 100)
+        $diskonPersen  = (float) ($get($prefix . 'diskon') ?? 0);
+        $diskonRp      = $total * ($diskonPersen / 100);
+
+        // 3. Setelah Diskon = Total − Diskon (Rp)
+        $setelahDiskon = max(0, $total - $diskonRp);
+
+        // 4. PPN (Rp) = Setelah Diskon × 11% (jika aktif)
+        $ppnAktif = (bool) ($get($prefix . 'ppn') ?? false);
+        $ppnRp    = $ppnAktif ? $setelahDiskon * 0.11 : 0;
+
+        // 5. Total Akhir = Setelah Diskon + PPN (Rp)
+        $totalAkhir = $setelahDiskon + $ppnRp;
+
+        $set($prefix . 'total', round($total));
+        $set($prefix . 'total_akhir', round($totalAkhir));
+    }
+
+    /** Dipanggil dari form root (vendor, ppn) */
     protected static function hitungTotal(Get $get, Set $set): void
     {
-        $details = $get('details') ?? [];
+        self::recalculate($get, $set, '');
+    }
 
-        $total = collect($details)->sum(fn ($item) => (float) ($item['subtotal'] ?? 0));
+    /** Dipanggil dari dalam repeater item (barang, qty, harga) */
+    protected static function hitungSubtotal(Get $get, Set $set): void
+    {
+        $qty     = (float) ($get('qty') ?? 0);
+        $harga   = (float) ($get('harga') ?? 0);
+        $subtotal = $qty * $harga;
 
-        $diskonPersen  = (float) ($get('diskon') ?? 0);
-        $diskonNominal = $total * ($diskonPersen / 100);
+        $set('subtotal', round($subtotal));
 
-        $dpp = max($total - $diskonNominal, 0);
-
-        $ppnAktif = (bool) ($get('ppn') ?? false);
-        $ppn      = $ppnAktif ? $dpp * 0.11 : 0;
-
-        $totalAkhir = $dpp + $ppn;
-
-        $set('total', round($total));
-        $set('total_akhir', round($totalAkhir));
+        // Navigate up dari repeater scope ke form root
+        self::recalculate($get, $set, '../../');
     }
 
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->orderByRaw('status = "lunas" ASC')->orderBy('created_at', 'desc'))
+            ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('tanggal')->label('Tanggal Pembelian')->date()->sortable(),
-                TextColumn::make('nomor')->label('Nomor Pembelian'),
-                TextColumn::make('vendor.nama_vendor')->label('Vendor'),
+                TextColumn::make('tanggal')->label('Tanggal PO')->date()->sortable(),
+                TextColumn::make('nomor')->label('No. PO')->searchable(),
+                TextColumn::make('vendor.nama_vendor')->label('Vendor')->searchable(),
                 TextColumn::make('total_akhir')
-                    ->label('Total')
+                    ->label('Total PO')
                     ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
                     ->sortable(),
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => $state === 'lunas' ? 'Lunas' : 'Belum Lunas')
-                    ->color(fn ($state) => $state === 'lunas' ? 'success' : 'danger')
+                    ->colors([
+                        'gray' => 'draft',
+                        'info' => 'menunggu',
+                        'warning' => 'partial',
+                        'success' => 'selesai',
+                        'danger' => 'dibatalkan',
+                    ])
+                    ->formatStateUsing(fn ($state) => match ($state) {
+                        'menunggu' => 'Menunggu',
+                        'partial' => 'Partial',
+                        'selesai' => 'Selesai',
+                        'dikirim' => 'Dikirim',
+                        'sebagian' => 'Sebagian',
+                        'diterima' => 'Diterima',
+                        default => ucfirst((string) $state),
+                    })
                     ->sortable(),
             ])
             ->recordActions([
@@ -246,11 +275,11 @@ class PembelianResource extends Resource
 
                 EditAction::make()
                     ->label('Edit')
-                    ->visible(fn ($record) => $record->status !== 'lunas'),
+                    ->visible(fn ($record) => in_array($record->status, ['draft', 'menunggu'], true)),
 
                 DeleteAction::make()
                     ->label('Hapus')
-                    ->visible(fn ($record) => $record->status !== 'lunas')
+                    ->visible(fn ($record) => in_array($record->status, ['draft', 'menunggu'], true))
                     ->modalHeading('Hapus Pembelian')
                     ->modalDescription('Apakah Anda yakin ingin menghapus data pembelian ini?')
                     ->modalSubmitActionLabel('Ya, hapus')

@@ -34,11 +34,16 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
+        if (in_array($this->role, ['admin', 'super_admin'], true)) {
+            return true;
+        }
+
         return match ($panel->getId()) {
-            'admin' => in_array($this->role, ['admin', 'operasional', 'finance']),
-            'sales' => $this->role === 'sales',
-            'finance' => $this->role === 'finance',
-            default => false,
+            'admin'  => in_array($this->role, ['operasional', 'finance']),
+            'sales'  => $this->role === 'sales',
+            'finance'=> $this->role === 'finance',
+            'gudang' => in_array($this->role, ['gudang', 'admin_gudang', 'operasional']),
+            default  => false,
         };
     }
 }

@@ -10,6 +10,8 @@ use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use UnitEnum;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Collection;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 // 🔥 PAKAI SCHEMA (BUKAN FORM)
 use Filament\Schemas\Components\Section;
@@ -22,6 +24,9 @@ use Filament\Forms\Components\Select;
 class LaporanBukuPembantuPiutang extends Page implements HasSchemas
 {
     use InteractsWithSchemas;
+    use \App\Filament\Traits\HasRoleAccess;
+
+    protected static array $allowedRoles = ['finance'];
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
     protected static UnitEnum|string|null $navigationGroup = 'Laporan';
@@ -62,96 +67,133 @@ class LaporanBukuPembantuPiutang extends Page implements HasSchemas
     }
 
     // =====================================
-    // 🔥 DATA LAPORAN
+    // 🔥 HELPER: Baris debit dari piutang
     // =====================================
-    public function getLaporanProperty()
+    /**
+     * @param  \App\Models\Pelanggan  $customer
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function getRowsDebit(Pelanggan $customer): Collection
     {
-        $state = $this->form->getState();
+        return Piutang::where('pelanggan_id', $customer->id)
+            ->get()
+            ->map(function (Piutang $item): array {
+                return [
+                    'tanggal'    => $item->tanggal_faktur,
+                    'ref'        => $item->no_faktur,
+                    'keterangan' => 'Penjualan Kredit',
+                    'debit'      => (float) $item->total_piutang,
+                    'kredit'     => 0.0,
+                    'urutan'     => 1,
+                ];
+            });
+    }
+
+    // =====================================
+    // 🔥 HELPER: Baris kredit dari pembayaran
+    // =====================================
+    /**
+     * @param  \App\Models\Pelanggan  $customer
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function getRowsKredit(Pelanggan $customer): Collection
+    {
+        return Pembayaran::with(['piutang'])
+            ->whereHas('piutang', function ($q) use ($customer): void {
+                $q->where('pelanggan_id', $customer->id);
+            })
+            ->where('keterangan', 'lunas')
+            ->get()
+            ->map(function (Pembayaran $item): array {
+                return [
+                    'tanggal'    => $item->tanggal_bayar,
+                    'ref'        => optional($item->piutang)->no_faktur ?? '-',
+                    'keterangan' => 'Pelunasan Piutang',
+                    'debit'      => 0.0,
+                    'kredit'     => (float) $item->jumlah_bayar,
+                    'urutan'     => 2,
+                ];
+            });
+    }
+
+    // =====================================
+    // 🔥 HELPER: Hitung saldo & susun data customer
+    // =====================================
+    /**
+     * @param  \App\Models\Pelanggan  $customer
+     * @return array<string, mixed>|null
+     */
+    private function buildCustomerLaporan(Pelanggan $customer): ?array
+    {
+        /** @var Collection<int, array<string, mixed>> $transaksi */
+        $transaksi = $this->getRowsDebit($customer)
+            ->merge($this->getRowsKredit($customer))
+            ->sortBy([
+                ['tanggal', 'asc'],
+                ['urutan', 'asc'],
+            ])
+            ->values();
+
+        $saldo       = 0.0;
+        $totalDebit  = 0.0;
+        $totalKredit = 0.0;
+        $rows        = [];
+
+        foreach ($transaksi as $t) {
+            $saldo      += $t['debit'];
+            $saldo      -= $t['kredit'];
+            $totalDebit  += $t['debit'];
+            $totalKredit += $t['kredit'];
+
+            $t['saldo'] = $saldo;
+            $rows[]     = $t;
+        }
+
+        if (count($rows) === 0) {
+            return null;
+        }
+
+        return [
+            'customer'    => $customer->nama_pelanggan,
+            'data'        => $rows,
+            'total_debit' => $totalDebit,
+            'total_kredit'=> $totalKredit,
+            'saldo_akhir' => $saldo,
+            'status'      => $saldo <= 0 ? 'Lunas' : 'Belum Lunas',
+        ];
+    }
+
+    // =====================================
+    // 🔥 HELPER: Ambil daftar customer sesuai filter
+    // =====================================
+    /**
+     * @return \Illuminate\Database\Eloquent\Collection<int, Pelanggan>
+     */
+    private function getFilteredCustomers(): \Illuminate\Database\Eloquent\Collection
+    {
+        /** @var array<string, mixed> $state */
+        $state      = $this->form->getState();
         $customerId = $state['customer_id'] ?? null;
 
-        $customers = $customerId
+        return $customerId
             ? Pelanggan::where('id', $customerId)->get()
             : Pelanggan::all();
+    }
 
+    // =====================================
+    // 🔥 DATA LAPORAN
+    // =====================================
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getLaporanProperty(): array
+    {
         $laporan = [];
 
-        foreach ($customers as $customer) {
-
-            // ======================
-            // DEBIT (PENJUALAN KREDIT)
-            // ======================
-            $piutang = Piutang::where('pelanggan_id', $customer->id)
-                ->get()
-                ->map(function ($item) {
-                    return [
-                        'tanggal' => $item->tanggal_faktur,
-                        'ref' => $item->no_faktur,
-                        'keterangan' => 'Penjualan Kredit',
-                        'debit' => $item->total_piutang,
-                        'kredit' => 0,
-                        'urutan' => 1,
-                    ];
-                });
-
-            // ======================
-            // KREDIT (PELUNASAN)
-            // ======================
-            $pembayaran = Pembayaran::with(['piutang'])
-                ->whereHas('piutang', function ($q) use ($customer) {
-                    $q->where('pelanggan_id', $customer->id);
-                })
-                ->where('keterangan', 'lunas')
-                ->get()
-                ->map(function ($item) {
-                    return [
-                        'tanggal' => $item->tanggal_bayar,
-                        'ref' => $item->piutang->no_faktur ?? '-',
-                        'keterangan' => 'Pelunasan Piutang',
-                        'debit' => 0,
-                        'kredit' => $item->jumlah_bayar,
-                        'urutan' => 2,
-                    ];
-                });
-
-            // ======================
-            // SORT TANGGAL + URUTAN
-            // ======================
-            $transaksi = $piutang
-                ->merge($pembayaran)
-                ->sortBy([
-                    ['tanggal', 'asc'],
-                    ['urutan', 'asc'],
-                ])
-                ->values();
-
-            // ======================
-            // HITUNG SALDO
-            // ======================
-            $saldo = 0;
-            $totalDebit = 0;
-            $totalKredit = 0;
-            $data = [];
-
-            foreach ($transaksi as $t) {
-                $saldo += $t['debit'];
-                $saldo -= $t['kredit'];
-
-                $totalDebit += $t['debit'];
-                $totalKredit += $t['kredit'];
-
-                $t['saldo'] = $saldo;
-                $data[] = $t;
-            }
-
-            if (count($data) > 0) {
-                $laporan[] = [
-                    'customer' => $customer->nama_pelanggan,
-                    'data' => $data,
-                    'total_debit' => $totalDebit,
-                    'total_kredit' => $totalKredit,
-                    'saldo_akhir' => $saldo,
-                    'status' => $saldo <= 0 ? 'Lunas' : 'Belum Lunas',
-                ];
+        foreach ($this->getFilteredCustomers() as $customer) {
+            $row = $this->buildCustomerLaporan($customer);
+            if ($row !== null) {
+                $laporan[] = $row;
             }
         }
 
@@ -161,81 +203,14 @@ class LaporanBukuPembantuPiutang extends Page implements HasSchemas
     // =====================================
     // 🔥 EXPORT PDF
     // =====================================
-    public function exportPdf()
+    public function exportPdf(): StreamedResponse
     {
-        $state = $this->form->getState();
-        $customerId = $state['customer_id'] ?? null;
-
-        $customers = $customerId
-            ? Pelanggan::where('id', $customerId)->get()
-            : Pelanggan::all();
-
         $laporan = [];
 
-        foreach ($customers as $customer) {
-
-            $piutang = Piutang::where('pelanggan_id', $customer->id)
-                ->get()
-                ->map(function ($item) {
-                    return [
-                        'tanggal' => $item->tanggal_faktur,
-                        'ref' => $item->no_faktur,
-                        'keterangan' => 'Penjualan Kredit',
-                        'debit' => $item->total_piutang,
-                        'kredit' => 0,
-                        'urutan' => 1,
-                    ];
-                });
-            $pembayaran = Pembayaran::with(['piutang'])
-                ->whereHas('piutang', function ($q) use ($customer) {
-                    $q->where('pelanggan_id', $customer->id);
-                })
-                ->where('keterangan', 'lunas')
-                ->get()
-                ->map(function ($item) {
-                    return [
-                        'tanggal' => $item->tanggal_bayar,
-                        'ref' => $item->piutang->no_faktur ?? '-',
-                        'keterangan' => 'Pelunasan Piutang',
-                        'debit' => 0,
-                        'kredit' => $item->jumlah_bayar,
-                        'urutan' => 2,
-                    ];
-                });
-
-            $transaksi = $piutang
-                ->merge($pembayaran)
-                ->sortBy([
-                    ['tanggal', 'asc'],
-                    ['urutan', 'asc'],
-                ])
-                ->values();
-
-            $saldo = 0;
-            $totalDebit = 0;
-            $totalKredit = 0;
-            $data = [];
-
-            foreach ($transaksi as $t) {
-                $saldo += $t['debit'];
-                $saldo -= $t['kredit'];
-
-                $totalDebit += $t['debit'];
-                $totalKredit += $t['kredit'];
-
-                $t['saldo'] = $saldo;
-                $data[] = $t;
-            }
-
-            if (count($data) > 0) {
-                $laporan[] = [
-                    'customer' => $customer->nama_pelanggan,
-                    'data' => $data,
-                    'total_debit' => $totalDebit,
-                    'total_kredit' => $totalKredit,
-                    'saldo_akhir' => $saldo,
-                    'status' => $saldo <= 0 ? 'Lunas' : 'Belum Lunas',
-                ];
+        foreach ($this->getFilteredCustomers() as $customer) {
+            $row = $this->buildCustomerLaporan($customer);
+            if ($row !== null) {
+                $laporan[] = $row;
             }
         }
 

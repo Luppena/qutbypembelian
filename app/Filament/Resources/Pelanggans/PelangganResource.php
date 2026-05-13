@@ -22,7 +22,7 @@ class PelangganResource extends Resource
 {
     use \App\Filament\Traits\HasRoleAccess;
 
-    protected static array $allowedRoles = ['finance', 'operasional'];
+    protected static array $allowedRoles = ['finance'];
 
     protected static ?string $model = Pelanggan::class;
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
@@ -64,5 +64,8 @@ class PelangganResource extends Resource
         ];
     }
 
-
+    public static function shouldRegisterNavigation(): bool
+    {
+        return Filament::getCurrentPanel()?->getId() === 'admin';
+    }
 }

@@ -69,4 +69,9 @@ class VendorResource extends Resource
             'edit'   => Pages\EditVendor::route('/{record}/edit'),
         ];
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return \Filament\Facades\Filament::getCurrentPanel()?->getId() === 'admin';
+    }
 }

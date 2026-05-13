@@ -24,11 +24,11 @@ class PembelianStats extends BaseWidget
             ->whereYear('tanggal', $tahunIni)
             ->count();
 
-        // Menunggu proses (status = proses)
-        $statusProses = Pembelian::where('status', 'proses')->count();
+        // Menunggu penerimaan GRN
+        $statusProses = Pembelian::where('status', 'menunggu')->count();
 
-        // Sudah diterima (status = diterima)
-        $statusDiterima = Pembelian::where('status', 'diterima')->count();
+        // Sudah diterima lengkap
+        $statusDiterima = Pembelian::where('status', 'selesai')->count();
 
         return [
             Stat::make('🛒 Total Pembelian Bulan Ini', 'Rp ' . number_format($totalNilai, 0, ',', '.'))
