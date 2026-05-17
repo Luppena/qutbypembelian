@@ -7,28 +7,10 @@
         $hargaWarning = $this->getHargaWarning();
         $fmtQty = fn ($value) => (float) $value > 0 ? number_format((float) $value, 0, ',', '.') : '-';
         $fmtRp = fn ($value) => (float) $value > 0 ? 'Rp ' . number_format((float) $value, 0, ',', '.') : '-';
+        $fmtNominal = fn ($value) => (float) $value > 0 ? number_format((float) $value, 0, ',', '.') : '-';
     @endphp
 
     <div style="display:flex; flex-direction:column; gap:18px;">
-        <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px;">
-            <div style="background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:14px;">
-                <div style="font-size:11px; color:#6b7280; font-weight:700; text-transform:uppercase;">Total Pembelian</div>
-                <div style="font-size:18px; color:#111827; font-weight:800; margin-top:6px;">{{ $fmtRp($summary['total_pembelian']) }}</div>
-            </div>
-            <div style="background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:14px;">
-                <div style="font-size:11px; color:#6b7280; font-weight:700; text-transform:uppercase;">Total HPP</div>
-                <div style="font-size:18px; color:#111827; font-weight:800; margin-top:6px;">{{ $fmtRp($summary['total_hpp']) }}</div>
-            </div>
-            <div style="background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:14px;">
-                <div style="font-size:11px; color:#6b7280; font-weight:700; text-transform:uppercase;">Nilai Persediaan Akhir</div>
-                <div style="font-size:18px; color:#111827; font-weight:800; margin-top:6px;">{{ $fmtRp($summary['nilai_persediaan_akhir']) }}</div>
-            </div>
-            <div style="background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:14px;">
-                <div style="font-size:11px; color:#6b7280; font-weight:700; text-transform:uppercase;">Metode</div>
-                <div style="font-size:18px; color:#111827; font-weight:800; margin-top:6px;">{{ $summary['metode'] }}</div>
-            </div>
-        </div>
-
         <div class="bg-white dark:bg-gray-800 shadow rounded-xl border border-gray-200 dark:border-gray-700">
             <div class="p-5 border-b border-gray-200 dark:border-gray-700">
                 <div style="display:flex; align-items:flex-end; gap:1rem; flex-wrap:wrap;">
@@ -60,23 +42,20 @@
                         </select>
                     </div>
 
-                    <button type="button" wire:click="openForm" style="display:inline-flex; align-items:center; justify-content:center; background-color:#d97706; color:#ffffff; padding:0 16px; border-radius:6px; font-size:14px; font-weight:700; height:38px; border:1px solid #b45309;">
-                        Tambah Transaksi
-                    </button>
                 </div>
             </div>
 
             <div style="padding:20px;">
                 <div style="margin-bottom:18px;">
                     <h2 style="font-size:16px; font-weight:800; color:#111827; margin:0 0 4px;">
-                        Kartu Stok Average - Periode: {{ $this->getPeriodeLabel() }}
+                        Kartu Stok Average Perpetual - Periode: {{ $this->getPeriodeLabel() }}
                     </h2>
-                    <p style="font-size:12px; color:#6b7280; margin:0;">Harga rata-rata berubah hanya saat pembelian baru masuk. Tanda ★ menunjukkan rata-rata baru.</p>
+                    <p style="font-size:12px; color:#6b7280; margin:0;">Setiap barang ditampilkan dalam kartu terpisah. Persediaan menunjukkan saldo rata-rata aktif setelah transaksi.</p>
                 </div>
 
                 @if(empty($cards))
                     <div style="text-align:center; padding:60px 20px; color:#6b7280; font-size:14px; border:1px dashed #d1d5db; border-radius:8px; background:#f9fafb;">
-                        Belum ada transaksi average untuk filter ini.
+                        Belum ada data barang masuk untuk filter ini.
                     </div>
                 @else
                     <div style="display:flex; flex-direction:column; gap:28px;">
@@ -119,16 +98,16 @@
                                                     <td style="border:1px solid #d1d5db; padding:8px; text-align:center; white-space:nowrap;">{{ $row['tanggal'] }}</td>
                                                     <td style="border:1px solid #d1d5db; padding:8px; min-width:180px;">{{ $row['keterangan'] }}</td>
                                                     <td style="border:1px solid #d1d5db; padding:8px; text-align:center;">{{ $fmtQty($row['pembelian']['qty'] ?? 0) }}</td>
-                                                    <td style="border:1px solid #d1d5db; padding:8px; text-align:right;">{{ $fmtRp($row['pembelian']['harga'] ?? 0) }}</td>
-                                                    <td style="border:1px solid #d1d5db; padding:8px; text-align:right;">{{ $fmtRp($row['pembelian']['total'] ?? 0) }}</td>
+                                                    <td style="border:1px solid #d1d5db; padding:8px; text-align:right;">{{ $fmtNominal($row['pembelian']['harga'] ?? 0) }}</td>
+                                                    <td style="border:1px solid #d1d5db; padding:8px; text-align:right;">{{ $fmtNominal($row['pembelian']['total'] ?? 0) }}</td>
                                                     <td style="border:1px solid #d1d5db; padding:8px; text-align:center;">{{ $fmtQty($row['hpp']['qty'] ?? 0) }}</td>
-                                                    <td style="border:1px solid #d1d5db; padding:8px; text-align:right;">{{ $fmtRp($row['hpp']['harga'] ?? 0) }}</td>
-                                                    <td style="border:1px solid #d1d5db; padding:8px; text-align:right;">{{ $fmtRp($row['hpp']['total'] ?? 0) }}</td>
+                                                    <td style="border:1px solid #d1d5db; padding:8px; text-align:right;">{{ $fmtNominal($row['hpp']['harga'] ?? 0) }}</td>
+                                                    <td style="border:1px solid #d1d5db; padding:8px; text-align:right;">{{ $fmtNominal($row['hpp']['total'] ?? 0) }}</td>
                                                     <td style="border:1px solid #d1d5db; padding:8px; text-align:center;">{{ $fmtQty($row['persediaan']['qty'] ?? 0) }}</td>
                                                     <td style="border:1px solid #d1d5db; padding:8px; text-align:right;">
-                                                        {{ $fmtRp($row['persediaan']['harga'] ?? 0) }}@if($row['persediaan']['average_changed'] ?? false) <strong style="color:#d97706;">★</strong>@endif
+                                                        {{ $fmtNominal($row['persediaan']['harga'] ?? 0) }}@if($row['persediaan']['average_changed'] ?? false) <strong style="color:#d97706;">*</strong>@endif
                                                     </td>
-                                                    <td style="border:1px solid #d1d5db; padding:8px; text-align:right;">{{ $fmtRp($row['persediaan']['total'] ?? 0) }}</td>
+                                                    <td style="border:1px solid #d1d5db; padding:8px; text-align:right;">{{ $fmtNominal($row['persediaan']['total'] ?? 0) }}</td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
@@ -137,13 +116,13 @@
                                                 <td colspan="2" style="border:1px solid #d1d5db; padding:9px; text-align:center;">Total</td>
                                                 <td style="border:1px solid #d1d5db; padding:9px; text-align:center;">{{ $fmtQty($card['total_pembelian_unit']) }}</td>
                                                 <td style="border:1px solid #d1d5db; padding:9px; text-align:right;">-</td>
-                                                <td style="border:1px solid #d1d5db; padding:9px; text-align:right;">{{ $fmtRp($card['total_pembelian']) }}</td>
+                                                <td style="border:1px solid #d1d5db; padding:9px; text-align:right;">{{ $fmtNominal($card['total_pembelian']) }}</td>
                                                 <td style="border:1px solid #d1d5db; padding:9px; text-align:center;">{{ $fmtQty($card['total_jual_unit']) }}</td>
                                                 <td style="border:1px solid #d1d5db; padding:9px; text-align:right;">-</td>
-                                                <td style="border:1px solid #d1d5db; padding:9px; text-align:right;">{{ $fmtRp($card['total_hpp']) }}</td>
+                                                <td style="border:1px solid #d1d5db; padding:9px; text-align:right;">{{ $fmtNominal($card['total_hpp']) }}</td>
                                                 <td style="border:1px solid #d1d5db; padding:9px; text-align:center;">{{ $fmtQty($card['stok_akhir']) }}</td>
-                                                <td style="border:1px solid #d1d5db; padding:9px; text-align:right;">{{ $fmtRp($card['harga_rata_rata_akhir']) }}</td>
-                                                <td style="border:1px solid #d1d5db; padding:9px; text-align:right;">{{ $fmtRp($card['persediaan_akhir']) }}</td>
+                                                <td style="border:1px solid #d1d5db; padding:9px; text-align:right;">{{ $fmtNominal($card['harga_rata_rata_akhir']) }}</td>
+                                                <td style="border:1px solid #d1d5db; padding:9px; text-align:right;">{{ $fmtNominal($card['persediaan_akhir']) }}</td>
                                             </tr>
                                         </tfoot>
                                     </table>

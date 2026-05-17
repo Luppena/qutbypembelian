@@ -16,8 +16,11 @@ class Grn extends Model
         'pembelian_id',
         'vendor_id',
         'tanggal_terima',
+        'nomor_surat_jalan',
+        'gudang_tujuan',
         'catatan',
         'status',
+        'status_penerimaan',
         'dikonfirmasi_oleh',
         'dikonfirmasi_at',
     ];
@@ -44,17 +47,34 @@ class Grn extends Model
         });
     }
 
-    public static function generateNomor(): string
+    public static function generateNomor(?int $pembelianId = null): string
     {
         $tahun = now()->year;
         $prefix = "GRN-{$tahun}-";
 
-        $last = DB::table('grns')
-            ->where('nomor_grn', 'like', "{$prefix}%")
-            ->orderByDesc('nomor_grn')
-            ->value('nomor_grn');
+        if ($pembelianId) {
+            $existing = self::query()
+                ->where('pembelian_id', $pembelianId)
+                ->orderBy('id')
+                ->pluck('nomor_grn');
 
-        $lastNumber = $last ? (int) substr($last, -4) : 0;
+            if ($existing->isNotEmpty()) {
+                $base = preg_replace('/-T\d+$/', '', (string) $existing->first());
+                $base = preg_replace('/^PNR-/', 'GRN-', $base);
+
+                return $base . '-T' . ($existing->count() + 1);
+            }
+        }
+
+        $lastNumber = DB::table('grns')
+            ->where('nomor_grn', 'like', "{$prefix}%")
+            ->pluck('nomor_grn')
+            ->map(function (string $nomor) use ($prefix): int {
+                $withoutPrefix = str_replace($prefix, '', preg_replace('/-T\d+$/', '', $nomor));
+
+                return preg_match('/^\d{4}$/', $withoutPrefix) ? (int) $withoutPrefix : 0;
+            })
+            ->max() ?? 0;
 
         return $prefix . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
     }

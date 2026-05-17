@@ -24,8 +24,6 @@ use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Support\Icons\Heroicon;
 use Filament\Actions\ViewAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\DeleteAction;
 use App\Filament\Traits\HasRoleAccess;
 
 class PembelianResource extends Resource
@@ -257,11 +255,13 @@ class PembelianResource extends Resource
                         'info' => 'menunggu',
                         'warning' => 'partial',
                         'success' => 'selesai',
+                        'danger' => 'retur',
                         'danger' => 'dibatalkan',
                     ])
                     ->formatStateUsing(fn ($state) => match ($state) {
                         'menunggu' => 'Menunggu',
                         'partial' => 'Partial',
+                        'retur' => 'Retur',
                         'selesai' => 'Selesai',
                         'dikirim' => 'Dikirim',
                         'sebagian' => 'Sebagian',
@@ -270,21 +270,20 @@ class PembelianResource extends Resource
                     })
                     ->sortable(),
             ])
+            ->filters([])
             ->recordActions([
                 ViewAction::make()->label('Lihat'),
-
-                EditAction::make()
-                    ->label('Edit')
-                    ->visible(fn ($record) => in_array($record->status, ['draft', 'menunggu'], true)),
-
-                DeleteAction::make()
-                    ->label('Hapus')
-                    ->visible(fn ($record) => in_array($record->status, ['draft', 'menunggu'], true))
-                    ->modalHeading('Hapus Pembelian')
-                    ->modalDescription('Apakah Anda yakin ingin menghapus data pembelian ini?')
-                    ->modalSubmitActionLabel('Ya, hapus')
-                    ->modalCancelActionLabel('Batal'),
             ]);
+    }
+
+    public static function canEdit($record): bool
+    {
+        return false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return false;
     }
 
     public static function getPages(): array

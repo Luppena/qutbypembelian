@@ -7,8 +7,6 @@ use Filament\Tables\Columns\TextColumn;
 
 // ⬇️ ACTIONS
 use Filament\Actions\ViewAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\DeleteAction;
 
 class PembeliansTable
 {
@@ -38,8 +36,6 @@ class PembeliansTable
             ])
             ->actions([
                 ViewAction::make()->label('Lihat'),
-                EditAction::make(),
-                DeleteAction::make(),
             ]);
     }
 }

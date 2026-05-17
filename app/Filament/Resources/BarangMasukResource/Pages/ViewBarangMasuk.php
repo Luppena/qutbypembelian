@@ -27,21 +27,21 @@ class ViewBarangMasuk extends ViewRecord
         /** @var Pembelian $record */
         $record = $this->getRecord()->load(['grns', 'details']);
 
-        $sudahAdaGrn = $record->grns->isNotEmpty();
+        $masihAdaOutstanding = $record->details->contains(fn ($detail) => (int) $detail->qty_outstanding > 0);
 
         return [
             Action::make('buat_grn')
-                ->label('Buat GRN (Terima Barang)')
+                ->label('Buat Penerimaan Barang')
                 ->icon('heroicon-o-clipboard-document-check')
                 ->color('success')
-                ->visible(! $sudahAdaGrn)
+                ->visible($masihAdaOutstanding)
                 ->url(fn () => GrnResource::getUrl('create') . '?pembelian_id=' . $record->id),
 
             Action::make('lihat_grn')
-                ->label('Lihat GRN')
+                ->label('Lihat Penerimaan')
                 ->icon('heroicon-o-eye')
                 ->color('info')
-                ->visible($sudahAdaGrn)
+                ->visible($record->grns->isNotEmpty())
                 ->url(fn () => GrnResource::getUrl('index') . '?pembelian_id=' . $record->id),
         ];
     }

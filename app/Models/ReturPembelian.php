@@ -104,6 +104,7 @@ class ReturPembelian extends Model
     {
         return match($this->alasan_utama) {
             'rusak'          => 'Barang Rusak/Cacat',
+            'kurang'         => 'Barang Kurang Diterima',
             'tidak_sesuai'   => 'Tidak Sesuai Pesanan',
             'kelebihan_qty'  => 'Kelebihan Qty',
             'kualitas_tidak_sesuai' => 'Kualitas Tidak Sesuai',

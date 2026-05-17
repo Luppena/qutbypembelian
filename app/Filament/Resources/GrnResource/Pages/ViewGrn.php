@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\GrnResource\Pages;
 
 use App\Filament\Resources\GrnResource;
+use App\Filament\Resources\ReturPembelians\ReturPembelianResource;
 use App\Filament\Traits\HasBackButtonHeading;
 use App\Models\Grn;
 use App\Services\GrnKonfirmasiService;
@@ -54,10 +55,13 @@ class ViewGrn extends ViewRecord
                 ->action(function () use ($grn) {
                     try {
                         app(GrnKonfirmasiService::class)->konfirmasi($grn, auth()->id() ?? 1);
+                        $grn->refresh();
 
                         Notification::make()
                             ->title($grn->nomor_grn . ' berhasil dikonfirmasi.')
-                            ->body('Stok barang telah diperbarui.')
+                            ->body($grn->status_penerimaan === 'ada_selisih_retur'
+                                ? 'Qty baik masuk stok. Barang rusak/kurang otomatis dibuatkan Retur Pembelian dan menunggu pickup supplier.'
+                                : 'Barang baik masuk stok dan kartu stok FIFO telah diperbarui.')
                             ->success()
                             ->send();
 
@@ -77,6 +81,13 @@ class ViewGrn extends ViewRecord
                 ->icon('heroicon-o-pencil')
                 ->visible($grn->status === 'draft')
                 ->url(fn () => GrnResource::getUrl('edit', ['record' => $grn->id])),
+
+            Action::make('buat_retur')
+                ->label('Buat Retur Pembelian')
+                ->color('danger')
+                ->icon('heroicon-o-arrow-uturn-left')
+                ->visible($grn->status === 'dikonfirmasi' && $grn->status_penerimaan === 'ada_selisih_retur')
+                ->url(fn () => ReturPembelianResource::getUrl('create') . '?pembelian_id=' . $grn->pembelian_id),
         ];
     }
 }

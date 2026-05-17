@@ -14,7 +14,6 @@ class LaporanPembelianFilter extends Widget
     public string $bulan = '';
     public string $tahun = '';
     public string $vendor_id = '';
-    public string $status = '';
 
     public function mount(): void
     {

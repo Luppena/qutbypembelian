@@ -55,7 +55,7 @@ class ReturPembelianResource extends Resource
     {
         return $schema->columns(1)->components([
             Section::make('Informasi Retur')
-                ->columns(3)
+                ->columns(4)
                 ->schema([
                     TextInput::make('nomor_retur')
                         ->label('No. Retur')
@@ -79,20 +79,15 @@ class ReturPembelianResource extends Resource
                             ->mapWithKeys(fn (Pembelian $po) => [$po->id => $po->nomor]))
                         ->searchable()
                         ->required()
+                        ->default(fn () => request()->query('pembelian_id'))
                         ->live()
                         ->afterStateHydrated(fn (Set $set, $state) => static::hydratePoFields($set, $state, false))
                         ->afterStateUpdated(function (Set $set, $state) {
-                            $set('details', []);
                             static::hydratePoFields($set, $state);
                         }),
 
                     TextInput::make('vendor_label')
                         ->label('Vendor')
-                        ->disabled()
-                        ->dehydrated(false),
-
-                    TextInput::make('status_po')
-                        ->label('Status PO')
                         ->disabled()
                         ->dehydrated(false),
 
@@ -113,7 +108,9 @@ class ReturPembelianResource extends Resource
                     Repeater::make('details')
                         ->label('Barang Retur')
                         ->relationship('details')
-                        ->addActionLabel('Tambah Barang Retur')
+                        ->addable(false)
+                        ->deletable(false)
+                        ->reorderable(false)
                         ->columns(4)
                         ->minItems(1)
                         ->mutateRelationshipDataBeforeCreateUsing(fn (array $data): array => static::prepareDetailData($data))
@@ -124,6 +121,8 @@ class ReturPembelianResource extends Resource
                                 ->options(fn (Get $get) => static::getReturBarangOptions($get('../../pembelian_id')))
                                 ->searchable()
                                 ->required()
+                                ->disabled()
+                                ->dehydrated()
                                 ->live()
                                 ->afterStateHydrated(fn (Set $set, $state) => static::hydrateDetailFields($set, $state, false))
                                 ->afterStateUpdated(fn (Set $set, $state) => static::hydrateDetailFields($set, $state)),
@@ -139,6 +138,8 @@ class ReturPembelianResource extends Resource
                                 ->required()
                                 ->minValue(1)
                                 ->maxValue(fn (Get $get) => (int) ($get('qty_diterima_display') ?? 0))
+                                ->disabled()
+                                ->dehydrated()
                                 ->live()
                                 ->extraInputAttributes(fn (Get $get) => [
                                     'class' => static::getQtyReturIndicator($get)['inputClass'],
@@ -223,76 +224,53 @@ class ReturPembelianResource extends Resource
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->colors([
-                        'warning' => 'menunggu',
-                        'info' => 'disetujui',
-                        'success' => 'selesai',
-                        'danger' => 'dibatalkan',
-                    ])
-                    ->formatStateUsing(fn ($state) => ucfirst((string) $state)),
+                    ->formatStateUsing(fn ($state, ReturPembelian $record) => match ($state) {
+                        'menunggu_pickup' => $record->penyelesaian === 'uang_potong_tagihan' ? 'Refund Diproses' : 'Tukar Barang Diproses',
+                        'tukar_barang_diproses' => 'Tukar Barang Diproses',
+                        'tukar_barang_selesai' => 'Tukar Barang Selesai',
+                        'refund_diproses' => 'Refund Diproses',
+                        'refund_selesai' => 'Refund Selesai',
+                        'selesai_retur' => 'Selesai Retur',
+                        default => ucfirst(str_replace('_', ' ', (string) $state)),
+                    })
+                    ->color(fn ($state) => match ($state) {
+                        'menunggu', 'tukar_barang_diproses', 'refund_diproses' => 'warning',
+                        'menunggu_pickup' => 'gray',
+                        'disetujui' => 'info',
+                        'selesai', 'selesai_retur', 'tukar_barang_selesai', 'refund_selesai' => 'success',
+                        'dibatalkan' => 'danger',
+                        default => 'gray',
+                    }),
             ])
             ->filters([
                 SelectFilter::make('status')
                     ->label('Status')
                     ->options([
                         'menunggu' => 'Menunggu',
+                        'menunggu_pickup' => 'Menunggu Pickup',
+                        'tukar_barang_diproses' => 'Tukar Barang Diproses',
+                        'tukar_barang_selesai' => 'Tukar Barang Selesai',
+                        'refund_diproses' => 'Refund Diproses',
+                        'refund_selesai' => 'Refund Selesai',
                         'disetujui' => 'Disetujui',
                         'selesai' => 'Selesai',
+                        'selesai_retur' => 'Selesai Retur',
                         'dibatalkan' => 'Dibatalkan',
                     ]),
             ])
             ->recordActions([
-                Action::make('setujui')
-                    ->label('Setujui')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn ($record) => $record->status === 'menunggu')
-                    ->requiresConfirmation()
-                    ->modalHeading('Setujui Retur Pembelian')
-                    ->modalDescription('Retur akan disetujui dan stok otomatis dikurangi sesuai qty retur.')
-                    ->modalSubmitActionLabel('Ya, Setujui')
-                    ->action(function (ReturPembelian $record) {
-                        DB::transaction(function () use ($record) {
-                            $record->load('details.barang');
-
-                            foreach ($record->details as $detail) {
-                                if ($detail->barang && $detail->qty_retur > 0) {
-                                    $detail->barang->decrement('stok', $detail->qty_retur);
-                                    static::consumeReturFifo($detail);
-
-                                    KartuStok::create([
-                                        'barang_id' => $detail->barang_id,
-                                        'tanggal' => $record->tanggal_retur ?? now(),
-                                        'keterangan' => 'Retur Pembelian ' . $record->nomor_retur,
-                                        'masuk' => 0,
-                                        'harga_masuk' => 0,
-                                        'keluar' => (int) $detail->qty_retur,
-                                        'harga_keluar' => (int) ($detail->harga_satuan ?? 0),
-                                        'source_type' => 'retur_pembelian',
-                                        'source_id' => $record->id,
-                                        'source_line_id' => $detail->id,
-                                    ]);
-                                }
-                            }
-
-                            $record->update([
-                                'status' => 'disetujui',
-                                'disetujui_oleh' => auth()->id(),
-                                'disetujui_at' => now(),
-                            ]);
-                        });
-
-                        Notification::make()
-                            ->title('Retur disetujui')
-                            ->body('Stok barang telah dikurangi sesuai qty retur.')
-                            ->success()
-                            ->send();
-                    }),
-
                 ViewAction::make()->label('Lihat'),
-                EditAction::make()->label('Edit')->visible(fn ($record) => $record->status === 'menunggu'),
-                DeleteAction::make()->label('Hapus')->visible(fn ($record) => $record->status === 'menunggu'),
             ]);
+    }
+
+    public static function canEdit($record): bool
+    {
+        return false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return false;
     }
 
     public static function poHasConfirmedGrn(mixed $poId): bool
@@ -315,9 +293,12 @@ class ReturPembelianResource extends Resource
                 ->where('pembelian_id', $poId)
                 ->where('status', 'dikonfirmasi'))
             ->where('qty_diterima', '>', 0)
+            ->where(fn (Builder $query) => $query
+                ->whereIn('kondisi', ['rusak_sebagian', 'rusak_semua'])
+                ->orWhere('qty_rusak', '>', 0))
             ->get()
             ->mapWithKeys(fn (GrnDetail $detail) => [
-                $detail->id => ($detail->barang->nama_barang ?? '-') . ' - diterima ' . (int) $detail->qty_diterima,
+                $detail->id => ($detail->barang->nama_barang ?? '-') . ' - rusak ' . static::getQtyReturFromGrnDetail($detail),
             ])
             ->toArray();
     }
@@ -327,7 +308,6 @@ class ReturPembelianResource extends Resource
         $set('grn_id', null);
         $set('vendor_id', null);
         $set('vendor_label', null);
-        $set('status_po', null);
 
         if (! $poId) {
             return;
@@ -337,8 +317,58 @@ class ReturPembelianResource extends Resource
 
         $set('vendor_id', $po?->vendor_id);
         $set('vendor_label', $po?->vendor?->nama_vendor ?? '-');
-        $set('status_po', ucfirst((string) ($po?->status ?? '-')));
         $set('grn_id', $po?->grns?->first()?->id);
+
+        if ($resetDetails) {
+            $set('details', static::getAutoReturDetails($poId));
+        }
+    }
+
+    public static function getAutoReturDetails(mixed $poId): array
+    {
+        if (! $poId) {
+            return [];
+        }
+
+        return GrnDetail::query()
+            ->with(['barang', 'pembelianDetail', 'grn'])
+            ->whereHas('grn', fn (Builder $query) => $query
+                ->where('pembelian_id', $poId)
+                ->where('status', 'dikonfirmasi'))
+            ->where('qty_diterima', '>', 0)
+            ->where(fn (Builder $query) => $query
+                ->whereIn('kondisi', ['rusak_sebagian', 'rusak_semua'])
+                ->orWhere('qty_rusak', '>', 0))
+            ->get()
+            ->map(function (GrnDetail $detail): array {
+                $harga = (float) ($detail->pembelianDetail?->harga_satuan ?? $detail->pembelianDetail?->harga ?? 0);
+                $qtyRetur = static::getQtyReturFromGrnDetail($detail);
+
+                return [
+                    'grn_detail_id' => $detail->id,
+                    'barang_id' => $detail->barang_id,
+                    'qty_diterima_display' => (int) $detail->qty_diterima,
+                    'qty_retur' => $qtyRetur,
+                    'satuan_display' => $detail->barang?->satuan ?? $detail->pembelianDetail?->satuan ?? '-',
+                    'harga_satuan' => $harga,
+                    'subtotal' => $qtyRetur * $harga,
+                    'kondisi' => $detail->kondisi,
+                    'catatan' => $detail->catatan_item,
+                ];
+            })
+            ->values()
+            ->toArray();
+    }
+
+    public static function getQtyReturFromGrnDetail(GrnDetail $detail): int
+    {
+        if ((int) ($detail->qty_rusak ?? 0) > 0) {
+            return (int) $detail->qty_rusak;
+        }
+
+        return in_array($detail->kondisi, ['rusak_sebagian', 'rusak_semua'], true)
+            ? (int) $detail->qty_diterima
+            : 0;
     }
 
     public static function hydrateDetailFields(Set $set, mixed $grnDetailId, bool $resetSubtotal = true): void

@@ -5,8 +5,10 @@ namespace App\Services;
 use App\Models\Grn;
 use App\Models\GrnDetail;
 use App\Models\KartuStok;
+use App\Models\ReturPembelian;
 use App\Models\StokFifoLayer;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class GrnKonfirmasiService
 {
@@ -21,19 +23,38 @@ class GrnKonfirmasiService
                 throw new \RuntimeException('GRN ini sudah dikonfirmasi.');
             }
 
-            $grn->load(['details.barang', 'details.pembelianDetail', 'pembelian']);
+            $grn->load(['details.barang', 'details.pembelianDetail.grnDetails.grn', 'pembelian', 'returPembelians']);
 
             $totalDppAcrual = 0;
+            $returLines = [];
 
             foreach ($grn->details as $detail) {
                 /** @var GrnDetail $detail */
-                if ($detail->kondisi === 'rusak_semua') {
-                    continue;
-                }
-
-                $qtyMasuk = (int) $detail->qty_diterima;
+                $qtyDiterima = (int) $detail->qty_diterima;
+                $qtyRusak = (int) ($detail->qty_rusak ?? 0);
+                $qtyRusak = $detail->kondisi !== 'baik' && $qtyRusak === 0
+                    ? $qtyDiterima
+                    : min($qtyRusak, $qtyDiterima);
+                $qtyMasuk = max(0, $qtyDiterima - $qtyRusak);
                 $hargaUnit = (int) ($detail->pembelianDetail->harga ?? 0);
                 $barang = $detail->barang;
+                $qtyOutstandingSebelum = $detail->pembelianDetail
+                    ? max(0, (int) $detail->pembelianDetail->qty - (int) $detail->pembelianDetail->qty_diterima)
+                    : 0;
+                $qtyKurang = max(0, $qtyOutstandingSebelum - $qtyDiterima);
+                $qtyRetur = $qtyRusak + $qtyKurang;
+
+                if ($qtyRetur > 0 && $barang) {
+                    $returLines[] = [
+                        'grn_detail_id' => $detail->id,
+                        'barang_id' => $barang->id,
+                        'qty_retur' => $qtyRetur,
+                        'harga_satuan' => $hargaUnit,
+                        'subtotal' => $qtyRetur * $hargaUnit,
+                        'kondisi' => $qtyRusak > 0 ? 'rusak' : 'kurang',
+                        'catatan' => $detail->catatan_item ?: ($qtyRusak > 0 ? 'Barang rusak saat penerimaan' : 'Qty kurang dari PO'),
+                    ];
+                }
 
                 if ($qtyMasuk <= 0 || ! $barang) {
                     continue;
@@ -83,8 +104,33 @@ class GrnKonfirmasiService
                 }
             }
 
+            if (! empty($returLines) && $grn->returPembelians->isEmpty()) {
+                $retur = ReturPembelian::create([
+                    'grn_id' => $grn->id,
+                    'pembelian_id' => $grn->pembelian_id,
+                    'vendor_id' => $grn->vendor_id,
+                    'tanggal_retur' => $grn->tanggal_terima,
+                    'alasan_utama' => collect($returLines)->contains(fn (array $line) => $line['kondisi'] === 'rusak') ? 'rusak' : 'kurang',
+                    'keterangan' => 'Retur otomatis dari penerimaan ' . $grn->nomor_grn,
+                    'penyelesaian' => 'barang_pengganti',
+                    'status' => 'menunggu_pickup',
+                    'dibuat_oleh' => $userId,
+                ]);
+
+                $retur->details()->createMany($returLines);
+
+                Log::info('Notifikasi supplier: barang retur menunggu pickup.', [
+                    'nomor_retur' => $retur->nomor_retur,
+                    'nomor_grn' => $grn->nomor_grn,
+                    'vendor_id' => $grn->vendor_id,
+                ]);
+            }
+
             $grn->update([
                 'status' => 'dikonfirmasi',
+                'status_penerimaan' => ! empty($returLines)
+                    ? 'ada_selisih_retur'
+                    : ($grn->hasSelisihQty() ? 'sebagian' : 'lengkap'),
                 'dikonfirmasi_oleh' => $userId,
                 'dikonfirmasi_at' => now(),
             ]);

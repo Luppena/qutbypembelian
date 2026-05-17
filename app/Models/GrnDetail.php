@@ -16,6 +16,7 @@ class GrnDetail extends Model
         'barang_id',
         'qty_po',
         'qty_diterima',
+        'qty_rusak',
         'kondisi',
         'foto',
         'catatan_item',
@@ -24,6 +25,7 @@ class GrnDetail extends Model
     protected $casts = [
         'qty_po'       => 'integer',
         'qty_diterima' => 'integer',
+        'qty_rusak'    => 'integer',
     ];
 
     /* ==========================

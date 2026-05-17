@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Barang;
+use App\Models\GrnDetail;
+use App\Models\KartuStok;
 use App\Models\KartuStokAverage;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -181,11 +183,26 @@ class KartuStokAverageService
         $tglMulai = Carbon::createFromDate((int) $tahun, (int) $bulan, 1)->startOfMonth();
         $tglAkhir = $tglMulai->copy()->endOfMonth();
 
-        $barangIds = KartuStokAverage::query()
-            ->where('tanggal', '<=', $tglAkhir->format('Y-m-d'))
+        $barangIds = GrnDetail::query()
             ->when($barangId, fn ($query) => $query->where('barang_id', $barangId))
+            ->whereHas('grn', fn ($query) => $query
+                ->where('status', 'dikonfirmasi')
+                ->whereDate('tanggal_terima', '<=', $tglAkhir->format('Y-m-d')))
+            ->where('qty_diterima', '>', 0)
+            ->where('kondisi', 'baik')
+            ->whereRaw('(qty_diterima - COALESCE(qty_rusak, 0)) > 0')
             ->distinct()
             ->pluck('barang_id');
+
+        $keluarBarangIds = KartuStok::query()
+            ->when($barangId, fn ($query) => $query->where('barang_id', $barangId))
+            ->whereNotNull('barang_id')
+            ->where('keluar', '>', 0)
+            ->whereDate('tanggal', '<=', $tglAkhir->format('Y-m-d'))
+            ->distinct()
+            ->pluck('barang_id');
+
+        $barangIds = $barangIds->merge($keluarBarangIds)->unique()->values();
 
         if ($barangId && ! $barangIds->contains($barangId)) {
             $barangIds->push($barangId);
@@ -215,21 +232,30 @@ class KartuStokAverageService
 
     private function buildCard(Barang $barang, Carbon $tglMulai, Carbon $tglAkhir): array
     {
-        $entries = KartuStokAverage::query()
-            ->where('barang_id', $barang->id)
-            ->where('tanggal', '<=', $tglAkhir->format('Y-m-d'))
-            ->orderBy('tanggal')
-            ->orderBy('id')
-            ->get();
+        $events = $this->getBarangMasukAverageEvents($barang->id, $tglAkhir)
+            ->concat($this->getBarangKeluarAverageEvents($barang->id, $tglAkhir))
+            ->sortBy([
+                ['tanggal_sort', 'asc'],
+                ['urut', 'asc'],
+            ])
+            ->values();
 
-        $saldoAwal = $this->saldoAwal($entries, $tglMulai);
-        $periodRows = $entries
-            ->filter(fn (KartuStokAverage $entry) => Carbon::parse($entry->tanggal)->betweenIncluded($tglMulai, $tglAkhir))
-            ->map(fn (KartuStokAverage $entry) => $this->formatRow($entry))
-            ->values()
-            ->all();
+        $saldo = [
+            'unit' => 0,
+            'harga' => 0.0,
+            'nilai' => 0.0,
+        ];
+
+        $events
+            ->filter(fn (array $event) => Carbon::parse($event['tanggal'])->lt($tglMulai))
+            ->each(fn (array $event) => $this->applyAverageEvent($saldo, $event));
 
         $rows = [];
+        $saldoAwal = [
+            'sisa_unit' => $saldo['unit'],
+            'harga_rata_rata' => $saldo['harga'],
+            'nilai_persediaan' => $saldo['nilai'],
+        ];
 
         if ($saldoAwal['sisa_unit'] > 0 || $saldoAwal['nilai_persediaan'] > 0) {
             $rows[] = [
@@ -247,13 +273,20 @@ class KartuStokAverageService
             ];
         }
 
+        $periodRows = $events
+            ->filter(fn (array $event) => Carbon::parse($event['tanggal'])->betweenIncluded($tglMulai, $tglAkhir))
+            ->map(function (array $event) use (&$saldo): array {
+                return $this->formatAverageEventRow($saldo, $event);
+            })
+            ->values()
+            ->all();
+
         $rows = array_merge($rows, $periodRows);
-        $last = $entries->last();
         $totalPembelianUnit = collect($periodRows)->sum(fn (array $row) => (int) ($row['pembelian']['qty'] ?? 0));
         $totalPembelian = collect($periodRows)->sum(fn (array $row) => (float) ($row['pembelian']['total'] ?? 0));
         $totalJualUnit = collect($periodRows)->sum(fn (array $row) => (int) ($row['hpp']['qty'] ?? 0));
         $totalHpp = collect($periodRows)->sum(fn (array $row) => (float) ($row['hpp']['total'] ?? 0));
-        $persediaanAkhir = (float) ($last?->nilai_persediaan ?? 0);
+        $persediaanAkhir = (float) $saldo['nilai'];
 
         return [
             'barang' => $barang,
@@ -264,12 +297,133 @@ class KartuStokAverageService
             'total_pembelian' => $totalPembelian,
             'total_jual_unit' => $totalJualUnit,
             'total_hpp' => $totalHpp,
-            'stok_akhir' => (int) ($last?->sisa_unit ?? 0),
-            'harga_rata_rata_akhir' => (float) ($last?->harga_rata_rata ?? 0),
+            'stok_akhir' => (int) $saldo['unit'],
+            'harga_rata_rata_akhir' => (float) $saldo['harga'],
             'persediaan_akhir' => $persediaanAkhir,
             'validasi' => round($saldoAwal['nilai_persediaan'] + $totalPembelian - $totalHpp, 2),
             'valid' => abs(($saldoAwal['nilai_persediaan'] + $totalPembelian - $totalHpp) - $persediaanAkhir) <= 1,
         ];
+    }
+
+    private function getBarangMasukAverageEvents(int $barangId, Carbon $tglAkhir): Collection
+    {
+        return GrnDetail::query()
+            ->with(['grn.pembelian', 'pembelianDetail'])
+            ->where('barang_id', $barangId)
+            ->whereHas('grn', fn ($query) => $query
+                ->where('status', 'dikonfirmasi')
+                ->whereDate('tanggal_terima', '<=', $tglAkhir->format('Y-m-d')))
+            ->where('qty_diterima', '>', 0)
+            ->where('kondisi', 'baik')
+            ->whereRaw('(qty_diterima - COALESCE(qty_rusak, 0)) > 0')
+            ->orderBy('id')
+            ->get()
+            ->map(function (GrnDetail $detail): array {
+                $tanggal = $detail->grn?->tanggal_terima
+                    ? Carbon::parse($detail->grn->tanggal_terima)
+                    : Carbon::parse('2000-01-01');
+                $qty = max(0, (int) $detail->qty_diterima - (int) ($detail->qty_rusak ?? 0));
+                $harga = (float) ($detail->pembelianDetail?->harga ?? 0);
+                $po = $detail->grn?->pembelian?->nomor;
+
+                return [
+                    'tanggal' => $tanggal->format('Y-m-d'),
+                    'tanggal_label' => $tanggal->format('d/m/Y'),
+                    'tanggal_sort' => $tanggal->format('Y-m-d'),
+                    'urut' => $detail->id,
+                    'jenis' => 'beli',
+                    'qty' => $qty,
+                    'harga' => $harga,
+                    'keterangan' => $po ? 'No. PO ' . $po : 'GRN ' . ($detail->grn?->nomor_grn ?? '-'),
+                ];
+            });
+    }
+
+    private function getBarangKeluarAverageEvents(int $barangId, Carbon $tglAkhir): Collection
+    {
+        return KartuStok::query()
+            ->where('barang_id', $barangId)
+            ->where('keluar', '>', 0)
+            ->whereDate('tanggal', '<=', $tglAkhir->format('Y-m-d'))
+            ->orderBy('tanggal')
+            ->orderBy('id')
+            ->get()
+            ->map(function (KartuStok $entry): array {
+                $tanggal = $entry->tanggal
+                    ? Carbon::parse($entry->tanggal)
+                    : Carbon::parse('2000-01-01');
+
+                return [
+                    'tanggal' => $tanggal->format('Y-m-d'),
+                    'tanggal_label' => $tanggal->format('d/m/Y'),
+                    'tanggal_sort' => $tanggal->format('Y-m-d'),
+                    'urut' => 100000000 + (int) $entry->id,
+                    'jenis' => 'jual',
+                    'qty' => (int) $entry->keluar,
+                    'harga' => 0,
+                    'keterangan' => filled($entry->keterangan)
+                        ? trim((string) preg_replace('/\s+\(.+\)$/', '', (string) $entry->keterangan))
+                        : 'Barang Keluar',
+                ];
+            });
+    }
+
+    private function formatAverageEventRow(array &$saldo, array $event): array
+    {
+        $pembelian = null;
+        $hpp = null;
+        $hargaLama = (float) $saldo['harga'];
+
+        if ($event['jenis'] === 'beli') {
+            $totalMasuk = (int) $event['qty'] * (float) $event['harga'];
+            $unitBaru = (int) $saldo['unit'] + (int) $event['qty'];
+            $hargaBaru = $unitBaru > 0
+                ? round(((float) $saldo['nilai'] + $totalMasuk) / $unitBaru, 2)
+                : 0;
+
+            $saldo['unit'] = $unitBaru;
+            $saldo['harga'] = $hargaBaru;
+            $saldo['nilai'] = round($unitBaru * $hargaBaru, 2);
+
+            $pembelian = [
+                'qty' => (int) $event['qty'],
+                'harga' => (float) $event['harga'],
+                'total' => $totalMasuk,
+            ];
+        }
+
+        if ($event['jenis'] === 'jual') {
+            $qtyKeluar = (int) $event['qty'];
+            $hppTotal = round($qtyKeluar * $hargaLama, 2);
+
+            $saldo['unit'] = (int) $saldo['unit'] - $qtyKeluar;
+            $saldo['nilai'] = round((int) $saldo['unit'] * $hargaLama, 2);
+
+            $hpp = [
+                'qty' => $qtyKeluar,
+                'harga' => $hargaLama,
+                'total' => $hppTotal,
+            ];
+        }
+
+        return [
+            'tanggal' => $event['tanggal_label'],
+            'keterangan' => $event['keterangan'],
+            'jenis' => $event['jenis'],
+            'pembelian' => $pembelian,
+            'hpp' => $hpp,
+            'persediaan' => [
+                'qty' => (int) $saldo['unit'],
+                'harga' => (float) $saldo['harga'],
+                'total' => (float) $saldo['nilai'],
+                'average_changed' => $event['jenis'] === 'beli',
+            ],
+        ];
+    }
+
+    private function applyAverageEvent(array &$saldo, array $event): void
+    {
+        $this->formatAverageEventRow($saldo, $event);
     }
 
     private function saldoAwal(Collection $entries, Carbon $tglMulai): array

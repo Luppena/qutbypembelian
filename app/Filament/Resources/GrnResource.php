@@ -22,6 +22,7 @@ use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Illuminate\Validation\Rule;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -63,35 +64,36 @@ class GrnResource extends Resource
     {
         return $schema->columns(1)->components([
 
-            Section::make('Informasi GRN')
+            Section::make('Informasi Penerimaan Barang')
                 ->columns(3)
                 ->schema([
                     TextInput::make('nomor_grn')
-                        ->label('Nomor GRN')
-                        ->default(fn () => Grn::generateNomor())
+                        ->label('Nomor Penerimaan')
+                        ->default(fn (Get $get) => Grn::generateNomor((int) $get('pembelian_id') ?: null))
                         ->disabled()
                         ->dehydrated(),
 
                     Select::make('pembelian_id')
-                        ->label('Pilih Purchase Order')
+                        ->label('Pesanan Pembelian')
                         ->options(
-                            Pembelian::whereIn('status', ['menunggu', 'partial', 'dikirim', 'sebagian'])
+                            Pembelian::with('vendor')
+                                ->whereIn('status', ['menunggu', 'partial', 'retur'])
                                 ->get()
-                                ->pluck('nomor', 'id')
+                                ->mapWithKeys(fn (Pembelian $po) => [
+                                    $po->id => "{$po->nomor} - {$po->vendor?->nama_vendor}" . ($po->status === 'retur' ? ' (Retur)' : ''),
+                                ])
                         )
                         ->searchable()
                         ->required()
+                        ->default(fn () => request()->query('pembelian_id'))
+                        ->rules([
+                            Rule::exists('pembelians', 'id')->whereIn('status', ['menunggu', 'partial', 'retur']),
+                        ])
                         ->live()
+                        ->afterStateHydrated(fn (Get $get, Set $set, $state) => self::fillFromPembelian($set, $state))
                         ->afterStateUpdated(function (Get $get, Set $set, $state) {
                             if (! $state) return;
-                            $po = Pembelian::with(['vendor', 'details.barang'])->find($state);
-                            if (! $po) return;
-                            $set('vendor_id', $po->vendor_id);
-
-                            // Auto-populate detail items dari PO
-                            $items = self::getOpenGrnItems($po);
-
-                            $set('details', $items);
+                            self::fillFromPembelian($set, $state);
                         }),
 
                     Select::make('vendor_id')
@@ -103,13 +105,26 @@ class GrnResource extends Resource
                     DatePicker::make('tanggal_terima')
                         ->label('Tanggal Terima')
                         ->default(now())
+                        ->minDate(fn (Get $get) => Pembelian::find($get('pembelian_id'))?->tanggal)
                         ->required(),
 
-                    Textarea::make('catatan')
-                        ->label('Catatan Penerimaan')
-                        ->columnSpanFull()
-                        ->rows(2)
-                        ->placeholder('Keterangan selisih, kondisi umum, dll.'),
+                    TextInput::make('nomor_surat_jalan')
+                        ->label('Nomor Surat Jalan')
+                        ->required()
+                        ->maxLength(100),
+
+                ]),
+
+            Section::make('Info Penerimaan Sebagian')
+                ->visible(fn (Get $get) => self::isPartialPo($get('pembelian_id')))
+                ->schema([
+                    Placeholder::make('partial_info')
+                        ->hiddenLabel()
+                        ->content(new HtmlString(
+                            '<div class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">' .
+                                'PO ini sudah pernah diterima sebagian atau memiliki retur barang pengganti. Silakan isi qty penerimaan untuk sisa/barang pengganti.' .
+                            '</div>'
+                        )),
                 ]),
 
             Section::make('Detail Penerimaan Per Item')
@@ -148,7 +163,15 @@ class GrnResource extends Resource
                                 ->dehydrated(false),
 
                             TextInput::make('qty_sudah_diterima')
-                                ->hidden()
+                                ->label('Qty Diterima')
+                                ->disabled()
+                                ->visible(fn (Get $get) => (int) ($get('qty_sudah_diterima') ?? 0) > 0)
+                                ->dehydrated(false),
+
+                            TextInput::make('qty_sisa')
+                                ->label('Qty Sisa')
+                                ->disabled()
+                                ->visible(fn (Get $get) => (int) ($get('qty_sudah_diterima') ?? 0) > 0)
                                 ->dehydrated(false),
 
                             TextInput::make('qty_diterima')
@@ -156,6 +179,7 @@ class GrnResource extends Resource
                                 ->numeric()
                                 ->required()
                                 ->minValue(0)
+                                ->maxValue(fn (Get $get) => max(0, (int) ($get('qty_po') ?? 0) - (int) ($get('qty_sudah_diterima') ?? 0)))
                                 ->live()
                                 ->extraInputAttributes(fn (Get $get) => [
                                     'class' => self::getQtyIndicator($get)['inputClass'],
@@ -168,18 +192,38 @@ class GrnResource extends Resource
                                     'rusak_sebagian' => '⚠️ Rusak Sebagian',
                                     'rusak_semua'    => '❌ Rusak Semua',
                                 ])
+                                ->options([
+                                    'baik' => 'Baik',
+                                    'rusak_sebagian' => 'Rusak',
+                                ])
                                 ->default('baik')
                                 ->disabled(fn (Get $get) => (int) ($get('qty_diterima') ?? 0) === 0)
                                 ->required(fn (Get $get) => (int) ($get('qty_diterima') ?? 0) > 0)
                                 ->live(),
+
+                            TextInput::make('qty_rusak')
+                                ->label('Qty Rusak')
+                                ->numeric()
+                                ->default(0)
+                                ->minValue(0)
+                                ->maxValue(fn (Get $get) => (int) ($get('qty_diterima') ?? 0))
+                                ->live()
+                                ->disabled(fn (Get $get) => (int) ($get('qty_diterima') ?? 0) === 0),
 
                             FileUpload::make('foto')
                                 ->label('Foto Kondisi')
                                 ->disk('public')
                                 ->directory('grn-photos')
                                 ->disabled(fn (Get $get) => (int) ($get('qty_diterima') ?? 0) === 0)
-                                ->required(fn (Get $get) => (int) ($get('qty_diterima') ?? 0) > 0)
+                                ->required(fn (Get $get) => self::hasItemIssue($get))
                                 ->columnSpan(2),
+
+                            Textarea::make('catatan_item')
+                                ->label('Catatan Selisih')
+                                ->rows(2)
+                                ->placeholder('Wajib diisi jika qty kurang atau barang rusak.')
+                                ->required(fn (Get $get) => self::hasItemIssue($get))
+                                ->columnSpanFull(),
 
                             Placeholder::make('indikator_qty')
                                 ->label('')
@@ -201,6 +245,8 @@ class GrnResource extends Resource
                 'barang_id'           => $detail->barang_id,
                 'qty_po'              => $detail->qty,
                 'qty_diterima'        => $detail->qty_outstanding,
+                'qty_rusak'           => 0,
+                'qty_sisa'            => $detail->qty_outstanding,
                 'satuan'              => $detail->satuan,
                 'qty_sudah_diterima'  => $detail->qty_diterima,
                 'kondisi'             => 'baik',
@@ -209,6 +255,46 @@ class GrnResource extends Resource
             ])
             ->values()
             ->toArray();
+    }
+
+    protected static function fillFromPembelian(Set $set, mixed $pembelianId): void
+    {
+        $po = Pembelian::with(['vendor', 'details.barang', 'details.grnDetails.grn'])
+            ->whereIn('status', ['menunggu', 'partial', 'retur'])
+            ->find($pembelianId);
+
+        if (! $po) {
+            $set('vendor_id', null);
+            $set('details', []);
+            return;
+        }
+
+        $set('vendor_id', $po->vendor_id);
+        $set('details', self::getOpenGrnItems($po));
+        $set('nomor_grn', Grn::generateNomor((int) $po->id));
+    }
+
+    protected static function isPartialPo(mixed $pembelianId): bool
+    {
+        if (! $pembelianId) {
+            return false;
+        }
+
+        return Pembelian::query()
+            ->whereKey($pembelianId)
+            ->whereIn('status', ['partial', 'retur'])
+            ->exists();
+    }
+
+    protected static function hasItemIssue(Get $get): bool
+    {
+        $qtyPo = (int) ($get('qty_po') ?? 0);
+        $qtyAktual = (int) ($get('qty_diterima') ?? 0);
+        $qtySudahDiterima = (int) ($get('qty_sudah_diterima') ?? 0);
+        $qtyTarget = max(0, $qtyPo - $qtySudahDiterima);
+        $kondisi = (string) ($get('kondisi') ?? 'baik');
+
+        return $qtyAktual < $qtyTarget || $kondisi === 'rusak_sebagian' || (int) ($get('qty_rusak') ?? 0) > 0;
     }
 
     protected static function getQtyIndicator(Get $get): array
@@ -261,7 +347,7 @@ class GrnResource extends Resource
         return [
             'badge' => "Lebih {$lebih}{$unit}",
             'message' => "Lebih {$lebih}{$unit} dari {$targetLabel}",
-            'note' => 'Over quantity perlu dikonfirmasi sebelum GRN diproses',
+            'note' => 'Qty melebihi PO tidak bisa disimpan. Catat kelebihan sebagai barang titipan di catatan.',
             'panelClass' => 'border-blue-300 bg-blue-50 text-blue-800',
             'badgeClass' => 'bg-blue-100 text-blue-700 ring-blue-200',
             'inputClass' => '!border-blue-400 focus:!border-blue-500 focus:!ring-blue-500',
@@ -319,7 +405,7 @@ class GrnResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('nomor_grn')
-                    ->label('Nomor GRN')
+                    ->label('Nomor Penerimaan')
                     ->searchable()
                     ->sortable(),
 
@@ -335,8 +421,13 @@ class GrnResource extends Resource
                     ->date('d M Y')
                     ->sortable(),
 
+                TextColumn::make('nomor_surat_jalan')
+                    ->label('Surat Jalan')
+                    ->searchable()
+                    ->placeholder('-'),
+
                 TextColumn::make('status')
-                    ->label('Status')
+                    ->label('Status Proses')
                     ->badge()
                     ->formatStateUsing(fn ($state) => match ($state) {
                         'draft'        => 'Draft',
@@ -347,6 +438,22 @@ class GrnResource extends Resource
                         'draft'        => 'warning',
                         'dikonfirmasi' => 'success',
                         default        => 'gray',
+                    }),
+
+                TextColumn::make('status_penerimaan')
+                    ->label('Status GRN')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => match ($state) {
+                        'lengkap' => 'Lengkap',
+                        'sebagian' => 'Sebagian',
+                        'ada_selisih_retur' => 'Ada Selisih / Retur',
+                        default => ucfirst(str_replace('_', ' ', (string) ($state ?: '-'))),
+                    })
+                    ->color(fn ($state) => match ($state) {
+                        'lengkap' => 'success',
+                        'sebagian' => 'warning',
+                        'ada_selisih_retur' => 'danger',
+                        default => 'gray',
                     }),
 
                 TextColumn::make('dikonfirmasi_at')

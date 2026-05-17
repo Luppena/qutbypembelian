@@ -1,8 +1,6 @@
 <x-filament-widgets::widget>
     <div class="bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-sm p-4">
-
         <div class="flex items-end gap-3 flex-wrap">
-            {{-- Bulan --}}
             <div class="flex-1 min-w-[140px]">
                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Bulan</label>
                 <select wire:model.live="bulan"
@@ -14,7 +12,6 @@
                 </select>
             </div>
 
-            {{-- Tahun --}}
             <div class="flex-1 min-w-[110px]">
                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Tahun</label>
                 <select wire:model.live="tahun"
@@ -25,30 +22,16 @@
                 </select>
             </div>
 
-            {{-- Vendor --}}
             <div class="flex-1 min-w-[180px]">
                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Vendor</label>
                 <select wire:model.live="vendor_id"
                     class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2 pl-3 pr-8">
-                    <option value="">— Semua Vendor —</option>
+                    <option value="">-- Semua Vendor --</option>
                     @foreach($this->getVendorOptions() as $id => $nama)
                         <option value="{{ $id }}" @selected((string)$vendor_id === (string)$id)>{{ $nama }}</option>
                     @endforeach
                 </select>
             </div>
-
-            {{-- Status --}}
-            <div class="flex-1 min-w-[150px]">
-                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Status</label>
-                <select wire:model.live="status"
-                    class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2 pl-3 pr-8">
-                    <option value="">— Semua Status —</option>
-                    <option value="lunas" @selected($status === 'lunas')>Lunas</option>
-                    <option value="belum_lunas" @selected($status === 'belum_lunas')>Belum Lunas</option>
-                </select>
-            </div>
-
         </div>
-
     </div>
 </x-filament-widgets::widget>

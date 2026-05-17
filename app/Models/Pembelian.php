@@ -117,6 +117,7 @@ class Pembelian extends Model
         $statuses = $details->map(fn (PembelianDetail $detail) => $detail->status_penerimaan);
 
         $status = match (true) {
+            $this->status === 'retur' => 'retur',
             $statuses->every(fn (string $status) => $status === 'belum_diterima') => 'menunggu',
             $statuses->every(fn (string $status) => $status === 'diterima_lengkap') => 'selesai',
             default => 'partial',

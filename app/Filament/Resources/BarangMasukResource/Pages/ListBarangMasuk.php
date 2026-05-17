@@ -11,7 +11,7 @@ class ListBarangMasuk extends ListRecords
 
     public function getTitle(): string
     {
-        return 'Daftar Barang Masuk (Purchase Order)';
+        return 'Daftar Barang Masuk';
     }
 
     protected function getHeaderActions(): array

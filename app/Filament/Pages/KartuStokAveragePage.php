@@ -93,9 +93,7 @@ class KartuStokAveragePage extends Page
 
     public function openForm(): void
     {
-        $this->showForm = true;
-        $this->formBarangId = $this->barangId !== '' ? $this->barangId : $this->formBarangId;
-        $this->formTanggal = $this->formTanggal ?: now()->format('Y-m-d');
+        $this->showForm = false;
     }
 
     public function closeForm(): void
